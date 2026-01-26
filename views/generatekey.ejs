@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title><%= title || 'ExHub - Generate Key' %></title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <link rel="icon" type="image/png" href="/img/ExLogo2.png" />
+  <link rel="stylesheet" href="/css/main.css" />
+</head>
+<body class="page-dark">
+  <noscript>
+    <div class="key-alert key-alert-error" style="margin:16px;">
+      JavaScript is required on this page to copy keys. Please enable JavaScript.
+    </div>
+  </noscript>
+
+<header class="site-header">
+  <div class="container header-inner">
+    <a href="/" class="logo">
+      <span class="logo-icon">
+        <img src="/img/ExLogo2.png" alt="ExHub Logo" style="width:100%;height:100%;object-fit:cover;border-radius:12px;" />
+      </span>
+      <span class="logo-text">ExHub</span>
+    </a>
+    <nav class="nav-links">
+      <a href="/">Home</a>
+      <a href="/scripts">Scripts</a>
+      <a href="/get-key">Get Key Work.Ink</a>
+      <a href="/generatekey" class="nav-active">Get Key Linkvertise</a>
+      <a href="/admin/login" class="nav-pill">Login</a>
+    </nav>
+  </div>
+</header>
+
+  <div class="key-page">
+    <div class="key-shell">
+      <!-- ================= HEADER / HERO ================= -->
+      <header class="key-header">
+        <div class="key-header-main">
+          <h1 class="section-title">ExHub <span class="accent-cycle">- Generate Key</span></h1>
+          <p class="key-subtitle">
+            Complete the step, then generate your ExHub key for loader / script.
+            Keys are valid for up to
+            <strong><%= (typeof defaultKeyHours !== 'undefined' ? defaultKeyHours : 24) %> hours</strong>.
+          </p>
+        </div>
+
+        <%
+          // ======== HEADER STATE / PROGRESS ========
+          var _headerState = (typeof headerState !== 'undefined' && headerState) ? headerState : 'start';
+          var _timerLabel  = (typeof headerTimerLabel !== 'undefined' && headerTimerLabel) ? headerTimerLabel : null;
+
+          var totalSteps   = 1;
+          var stepsDone    = (_headerState === 'done') ? totalSteps : 0;
+          var pctRaw       = (stepsDone / totalSteps) * 100;
+          var pct          = Math.max(0, Math.min(100, Math.round(pctRaw)));
+
+          // ======== START URL (ads) ========
+          var _adsUrl   = (typeof adsUrl !== 'undefined' && adsUrl) ? String(adsUrl) : '';
+          var _currUid  = (typeof currentUserId !== 'undefined' && currentUserId) ? String(currentUserId).trim() : '';
+          var startUrl  = _adsUrl;
+
+          // Kalau server belum set adsUrl atau masih kosong → fallback ke /generatekey/ads-start
+          if (!startUrl) {
+            startUrl = '/generatekey/ads-start';
+          }
+
+          // Pastikan userId ikut sebagai query (kalau ada)
+          if (_currUid) {
+            if (startUrl.indexOf('?') === -1) {
+              startUrl = startUrl + '?userId=' + encodeURIComponent(_currUid);
+            } else if (startUrl.indexOf('userId=') === -1) {
+              startUrl = startUrl + '&userId=' + encodeURIComponent(_currUid);
+            }
+          }
+
+          // ======== NEW KEY ACTION & GENERATE FLAG ========
+          var newKeyAction = (typeof keyAction !== 'undefined' && keyAction) ? keyAction : '/getkey/new';
+          var canGenerate  = (typeof allowGenerate === 'boolean') ? allowGenerate : true;
+
+          // ======== RENEW ACTION ========
+          var renewAction  = (typeof renewAction !== 'undefined' && renewAction) ? renewAction : '/getkey/renew';
+
+          // ======== FLAG: APAKAH ADA KEY EXPIRED (untuk info/gate tambahan jika perlu) ========
+          var hasExpiredKey = false;
+          if (Array.isArray(keys)) {
+            for (var i = 0; i < keys.length; i++) {
+              var ks = keys[i];
+              var st = (ks && ks.status) ? ks.status : 'Active';
+              if (st === 'Expired') {
+                hasExpiredKey = true;
+                break;
+              }
+            }
+          }
+        %>
+
+        <div class="key-header-progress">
+          <div class="key-progress-label">
+            Progress:&nbsp;<span><%= stepsDone %>/<%= totalSteps %></span>
+          </div>
+          <div class="key-progress-bar">
+            <div class="key-progress-bar-fill" style="width: <%= pct %>%"></div>
+          </div>
+        </div>
+
+        <div class="key-header-actions">
+          <% if (_headerState === 'timer' && _timerLabel) { %>
+            <!-- Mode timer (opsional) -->
+            <button
+              type="button"
+              class="key-btn key-btn-outline"
+              disabled
+              aria-disabled="true"
+            >
+              <span class="key-btn-icon">⏳</span>
+              <span><%= _timerLabel %></span>
+            </button>
+          <% } else if (_headerState === 'done') { %>
+            <!-- Mode DONE: checkpoint / ads sudah selesai -->
+            <button
+              type="button"
+              class="key-btn key-btn-outline"
+              disabled
+              aria-disabled="true"
+            >
+              <span class="key-btn-icon">✔</span>
+              <span>Done</span>
+            </button>
+          <% } else { %>
+            <!-- Default: tombol Start -->
+            <a
+              href="<%= startUrl %>"
+              class="key-btn key-btn-primary"
+              rel="noopener noreferrer"
+            >
+              <span class="key-btn-icon">⧉</span>
+              <span>Start</span>
+            </a>
+          <% } %>
+        </div>
+      </header>
+
+      <!-- ALERT ERROR (opsional) -->
+      <% if (errorMessage) { %>
+        <div class="key-alert key-alert-error">
+          <span><%= errorMessage %></span>
+        </div>
+      <% } %>
+
+      <!-- ================= INSTRUCTIONS ================= -->
+      <section class="key-instructions">
+        <h2 class="key-section-title">How it works</h2>
+        <ol class="key-step-list">
+          <li>Click <strong>Start</strong> to open the ads.</li>
+          <li>Complete all required steps in Linkvertise until it redirects back here.</li>
+          <li>
+            After redirect, you should land on:
+            <code>
+              <%
+                var finalBase = (typeof baseUrl !== 'undefined' && baseUrl) ? baseUrl : '';
+                var finalHost = (typeof requestHost !== 'undefined' && requestHost) ? requestHost : '';
+                if (finalBase) {
+              %>
+                <%= finalBase + '/generatekey' %>
+              <% } else if (finalHost) { %>
+                https://<%= finalHost %>/generatekey
+              <% } else { %>
+                /generatekey
+              <% } %>
+            </code>.
+          </li>
+          <li>On that page, click <strong>Get A New Key</strong> to generate your token, then copy it into your ExHub loader / script.</li>
+        </ol>
+        <p class="key-note">
+          Max
+          <strong><%= (typeof maxKeys !== 'undefined' ? maxKeys : 1) %> active keys</strong>
+          per IP. Expired keys will not count against this limit.
+        </p>
+        <% if (typeof currentUserId !== 'undefined' && currentUserId) { %>
+          <p class="key-note">
+            Current Roblox UserId filter:
+            <code><%= currentUserId %></code>
+          </p>
+        <% } %>
+      </section>
+
+      <!-- ================= BODY: LIST KEYS ================= -->
+      <section class="key-body">
+        <div class="key-body-header">
+          <div>
+            <h2 class="key-section-title">
+              Your Keys (<%= (keys && keys.length) || 0 %>/<%= (typeof maxKeys !== 'undefined' ? maxKeys : 1) %>)
+            </h2>
+            <p class="key-body-subtitle">
+              Copy one active key and paste it into your loader or Roblox script.
+            </p>
+          </div>
+
+          <!-- Form kecil untuk filter/refresh by userId -->
+          <form
+            action="/generatekey"
+            method="GET"
+            class="key-new-form"
+            autocomplete="off"
+            novalidate
+          >
+            <input
+              type="text"
+              name="userId"
+              class="key-input"
+              placeholder="Optional: Roblox UserId"
+              value="<%= typeof currentUserId !== 'undefined' ? currentUserId : '' %>"
+              autocomplete="off"
+              inputmode="numeric"
+            />
+            <button type="submit" class="key-btn key-btn-ghost">
+              Refresh
+            </button>
+          </form>
+        </div>
+
+        <% if (keys && keys.length > 0) { %>
+          <div class="key-table-wrapper">
+            <table class="key-table">
+              <thead>
+                <tr>
+                  <th>Your Keys</th>
+                  <th>Time Left</th>
+                  <th>Status</th>
+                  <th class="key-col-actions">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% keys.forEach(function(k) { %>
+                  <%
+                    // Server boleh kirim salah satu:
+                    //  - k.expiresAtMs (ms sejak epoch)
+                    //  - k.expiresAt (ms / ISO, tergantung implementasi)
+                    //  - k.expiresAfter (ms)
+                    var expireTs = null;
+                    if (k && typeof k.expiresAtMs !== 'undefined' && k.expiresAtMs !== null) {
+                      expireTs = parseInt(k.expiresAtMs, 10);
+                    } else if (k && typeof k.expiresAfter !== 'undefined' && k.expiresAfter !== null) {
+                      expireTs = parseInt(k.expiresAfter, 10);
+                    } else if (k && typeof k.expiresAt !== 'undefined' && k.expiresAt !== null) {
+                      var tmp = parseInt(k.expiresAt, 10);
+                      if (!isNaN(tmp)) expireTs = tmp;
+                    }
+
+                    var statusLabel = (k && k.status) ? k.status : 'Active';
+                    var badgeClass =
+                      statusLabel === 'Active'
+                        ? 'badge-success'
+                        : statusLabel === 'Expired'
+                        ? 'badge-muted'
+                        : 'badge-danger';
+
+                    var isExpiredNow = (statusLabel === 'Expired');
+                    var btnMode = isExpiredNow ? 'renew' : 'copy';
+                    var btnLabel = isExpiredNow ? 'Renew' : 'Copy';
+                    var btnDisabledAttr = '';
+
+                    // Kalau status Expired tapi iklan belum selesai (canGenerate = false),
+                    // maka tombol Renew harus disable.
+                    if (isExpiredNow && !canGenerate) {
+                      btnDisabledAttr = 'disabled="disabled" aria-disabled="true"';
+                    }
+                  %>
+                  <tr
+                    class="key-row"
+                    data-status="<%= statusLabel %>"
+                    <% if (expireTs) { %> data-expire-ts="<%= expireTs %>" <% } %>
+                  >
+                    <td class="key-cell-token">
+                      <code class="key-token"><%= k.token %></code>
+                    </td>
+
+                    <!-- TIME LEFT: label awal dari server, bisa di-update JS -->
+                    <td class="key-cell-time">
+                      <span class="key-time-label">
+                        <%= k.timeLeftLabel || (expireTs ? '' : '-') %>
+                      </span>
+                    </td>
+
+                    <!-- STATUS BADGE -->
+                    <td>
+                      <span class="badge <%= badgeClass %> key-status-badge"><%= statusLabel %></span>
+                    </td>
+
+                    <!-- ACTIONS: Copy (untuk Active) / Renew (untuk Expired) -->
+                    <td class="key-cell-actions">
+                      <button
+                        type="button"
+                        class="key-btn key-btn-xs key-btn-outline"
+                        data-copy-or-renew="1"
+                        data-mode="<%= btnMode %>"
+                        data-token="<%= k.token %>"
+                        <%- btnDisabledAttr %>
+                      >
+                        <%= btnLabel %>
+                      </button>
+
+                      <% if (renewAction) { %>
+                        <!-- Hidden form untuk Renew, dipanggil via JS ketika tombol di mode 'renew' diklik -->
+                        <form
+                          action="<%= renewAction %>"
+                          method="POST"
+                          class="key-renew-form"
+                          data-renew-form="1"
+                          style="display:none; margin-left:6px;"
+                        >
+                          <input type="hidden" name="token" value="<%= k.token %>" />
+                          <% if (typeof currentUserId !== 'undefined' && currentUserId) { %>
+                            <input type="hidden" name="userId" value="<%= currentUserId %>" />
+                          <% } %>
+                          <!-- Tombol submit tersembunyi, hanya untuk trigger submit() -->
+                          <button type="submit" data-renew-hidden-btn="1" style="display:none;"></button>
+                        </form>
+                      <% } %>
+                    </td>
+                  </tr>
+                <% }); %>
+              </tbody>
+            </table>
+          </div>
+        <% } else { %>
+          <div class="key-empty">
+            <p>
+              No keys for this IP yet. Follow the steps above, complete ads / link-hub,
+              then click <strong>Get A New Key</strong> below.
+            </p>
+          </div>
+        <% } %>
+      </section>
+
+      <!-- ================= CTA: GET A NEW KEY ================= -->
+      <section class="key-body">
+        <div style="margin-top: 18px; display: flex; justify-content: center;">
+          <form
+            action="<%= newKeyAction %>"
+            method="POST"
+            data-new-key-form="1"
+            style="display: inline-flex; flex-direction: column; align-items: center; gap: 8px;"
+          >
+            <% if (typeof currentUserId !== 'undefined' && currentUserId) { %>
+              <input type="hidden" name="userId" value="<%= currentUserId %>" />
+            <% } %>
+
+            <button
+              type="submit"
+              class="key-btn key-btn-ghost"
+              style="min-width: 220px; justify-content: center;"
+              <%= canGenerate ? '' : 'disabled="disabled" aria-disabled="true"' %>
+            >
+              <span class="key-btn-icon">＋</span>
+              <span>Get A New Key</span>
+            </button>
+
+            <% if (!canGenerate) { %>
+              <p class="key-note" style="text-align:center; max-width: 360px;">
+                Complete the <strong>Start</strong> step in Linkvertise first.
+                After redirecting back here, this button will be unlocked.
+              </p>
+            <% } %>
+          </form>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- ================= SCRIPT: COPY / RENEW BUTTON ================= -->
+  <script>
+    (function () {
+      var buttons = document.querySelectorAll('[data-copy-or-renew]');
+      if (!buttons || !buttons.length) return;
+
+      function safeText(str, maxLen) {
+        if (typeof str !== 'string') str = String(str || '');
+        if (maxLen && maxLen > 0 && str.length > maxLen) {
+          return str.slice(0, maxLen);
+        }
+        return str;
+      }
+
+      buttons.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          if (btn.disabled) return;
+
+          var mode = btn.getAttribute('data-mode') || 'copy';
+          var token = btn.getAttribute('data-token') || '';
+
+          if (mode === 'renew') {
+            // Mode RENEW → submit form renew di baris ini
+            var row = btn.closest('tr');
+            if (!row) return;
+            var renewForm = row.querySelector('form[data-renew-form="1"]');
+            if (!renewForm) return;
+
+            renewForm.submit();
+            return;
+          }
+
+          // Mode COPY
+          token = safeText(token, 256);
+          if (!token) return;
+
+          var prev = btn.textContent;
+
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard
+              .writeText(token)
+              .then(function () {
+                btn.textContent = 'Copied';
+                setTimeout(function () {
+                  btn.textContent = prev;
+                }, 1200);
+              })
+              .catch(function () {
+                btn.textContent = 'Failed';
+                setTimeout(function () {
+                  btn.textContent = prev;
+                }, 1200);
+              });
+          } else {
+            // Fallback lama (execCommand)
+            var dummy = document.createElement('textarea');
+            dummy.value = token;
+            dummy.setAttribute('readonly', '');
+            dummy.style.position = 'fixed';
+            dummy.style.opacity = '0';
+            dummy.style.zIndex = '-1';
+            document.body.appendChild(dummy);
+            dummy.select();
+            try {
+              document.execCommand('copy');
+            } catch (e) {
+              console.warn('Copy failed', e);
+            }
+            document.body.removeChild(dummy);
+          }
+        });
+      });
+    })();
+  </script>
+
+  <!-- ================= SCRIPT: REALTIME TIME LEFT + DYNAMIC RENEW ================= -->
+  <script>
+    (function () {
+      var table = document.querySelector('.key-table');
+      if (!table) return;
+
+      var rows = table.querySelectorAll('tbody tr.key-row');
+      if (!rows || !rows.length) return;
+
+      // Flag dari server: apakah sesi ini boleh generate/renew?
+      var CAN_GENERATE = <%= canGenerate ? 'true' : 'false' %>;
+
+      function formatRemaining(ms) {
+        if (!isFinite(ms)) return '-';
+        if (ms <= 0) return 'Expired';
+
+        var totalSec = Math.floor(ms / 1000);
+        var d = Math.floor(totalSec / 86400);
+        var h = Math.floor((totalSec % 86400) / 3600);
+        var m = Math.floor((totalSec % 3600) / 60);
+        var s = totalSec % 60;
+
+        var parts = [];
+        if (d > 0) parts.push(d + 'd');
+        if (h > 0 || d > 0) parts.push(h + 'h');
+        if (m > 0 || h > 0 || d > 0) parts.push(m + 'm');
+        parts.push(s + 's');
+        return parts.join(' ');
+      }
+
+      function tick() {
+        var now = Date.now();
+
+        rows.forEach(function (row) {
+          var expireStr = row.getAttribute('data-expire-ts');
+          if (!expireStr) return;
+
+          var expireTs = parseInt(expireStr, 10);
+          if (!expireTs || !isFinite(expireTs)) return;
+
+          var timeCell = row.querySelector('.key-time-label');
+          if (!timeCell) return;
+
+          var diff = expireTs - now;
+          timeCell.textContent = formatRemaining(diff);
+
+          var statusBadge = row.querySelector('.key-status-badge');
+
+          if (diff <= 0) {
+            // Sudah expired (atau lewat)
+            if (statusBadge && !statusBadge.dataset.expiredSet) {
+              statusBadge.textContent = 'Expired';
+              statusBadge.classList.remove('badge-success');
+              statusBadge.classList.remove('badge-danger');
+              statusBadge.classList.add('badge-muted');
+              statusBadge.dataset.expiredSet = '1';
+            }
+
+            // Ubah tombol baris ini menjadi mode Renew
+            var actionBtn = row.querySelector('[data-copy-or-renew]');
+            if (actionBtn && actionBtn.getAttribute('data-mode') !== 'renew') {
+              actionBtn.setAttribute('data-mode', 'renew');
+              actionBtn.textContent = 'Renew';
+
+              if (!CAN_GENERATE) {
+                actionBtn.disabled = true;
+                actionBtn.setAttribute('aria-disabled', 'true');
+              }
+            }
+          }
+        });
+      }
+
+      // Initial run + interval
+      tick();
+      setInterval(tick, 1000);
+    })();
+  </script>
+
+  <!-- ================= SCRIPT: GATE RENEW vs GET A NEW KEY (MUTUALLY EXCLUSIVE) ================= -->
+  <script>
+    (function () {
+      var newKeyForm = document.querySelector('form[data-new-key-form="1"]');
+      var newKeyBtn = newKeyForm
+        ? newKeyForm.querySelector('button[type="submit"]')
+        : null;
+
+      function disableButton(btn) {
+        if (!btn) return;
+        btn.disabled = true;
+        btn.setAttribute('aria-disabled', 'true');
+      }
+
+      function disableAllRenewButtons() {
+        var renewButtons = document.querySelectorAll(
+          '[data-copy-or-renew][data-mode="renew"]'
+        );
+        renewButtons.forEach(function (btn) {
+          disableButton(btn);
+        });
+      }
+
+      // Saat form Renew manapun disubmit → matikan Get A New Key + semua Renew lain
+      var renewForms = document.querySelectorAll('form[data-renew-form="1"]');
+      if (renewForms && renewForms.length) {
+        renewForms.forEach(function (form) {
+          form.addEventListener('submit', function () {
+            if (newKeyBtn) {
+              disableButton(newKeyBtn);
+            }
+            disableAllRenewButtons();
+          });
+        });
+      }
+
+      // Saat Get A New Key disubmit → matikan semua Renew (khusus kasus ada Expired)
+      if (newKeyForm && newKeyBtn) {
+        newKeyForm.addEventListener('submit', function () {
+          disableAllRenewButtons();
+          disableButton(newKeyBtn);
+        });
+      }
+    })();
+  </script>
+
+  <!-- Proteksi dasar: blokir klik kanan + beberapa shortcut DevTools -->
+  <script src="/js/protect-devtools.js"></script>
+</body>
+</html>

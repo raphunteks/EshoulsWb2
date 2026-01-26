@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>ExHub — Script Protected</title>
+  <link rel="icon" type="image/png" href="/img/ExLogo2.png" />
+  <link rel="stylesheet" href="/css/main.css" />
+</head>
+<body class="page-dark api404-page">
+
+<header class="site-header">
+  <div class="container header-inner">
+    <a href="/" class="logo">
+      <span class="logo-icon">Ex</span>
+      <span class="logo-text">ExHub</span>
+    </a>
+    <nav class="nav-links">
+      <a href="/">Home</a>
+      <a href="/scripts">Scripts</a>
+      <!-- <a href="/get-key">Get Key</a> --> 
+      <a href="https://discord.com/invite/VsFQq5s6" target="_blank">Discord</a>
+      <a href="/discord-login" class="nav-pill">Get Free Key</a>
+      <!-- <a href="/admin/login" class="nav-pill">Login</a> -->
+    </nav>
+  </div>
+</header>
+
+<main class="api404-main">
+  <div class="container">
+    <div class="api404-card">
+      <% const isNotFound = (reason === 'not_found'); %>
+
+      <div class="api404-badge">
+        <% if (isNotFound) { %>
+          404 — Script Not Registered
+        <% } else { %>
+          Access Forbidden — Protected Endpoint
+        <% } %>
+      </div>
+
+      <h1 class="api404-title">
+        <% if (isNotFound) { %>
+          Script ID tidak dikenal di ExHub.
+        <% } else { %>
+          Direct access ke script tidak diizinkan.
+        <% } %>
+      </h1>
+
+      <p class="api404-subtitle">
+        <% if (isNotFound) { %>
+          Script dengan ID <code><%= scriptId %></code> belum terdaftar di panel ExHub.
+          Pastikan Anda menggunakan ID yang benar atau hubungi admin jika ini adalah script baru.
+        <% } else { %>
+          Endpoint API ini hanya merespon permintaan dari Roblox executor
+          menggunakan loader resmi ExHub. Akses langsung via browser akan
+          selalu diarahkan ke halaman ini.
+        <% } %>
+      </p>
+
+      <div class="api404-code-wrapper">
+        <div class="api404-code-header">
+          <span class="dot red"></span>
+          <span class="dot yellow"></span>
+          <span class="dot green"></span>
+          <span class="api404-code-title">ExHub loader snippet</span>
+        </div>
+        <pre class="code-block api404-code-block"><code><%= loaderSnippet || ('loadstring(game:HttpGet("https://excc-webs.vercel.app/api/script/' + scriptId + '", true))()') %></code></pre>
+        <p class="code-caption">
+          Jalankan loader di Roblox executor. Endpoint akan mengembalikan Lua script
+          hanya untuk permintaan yang valid dari game client.
+        </p>
+      </div>
+
+      <div class="api404-actions">
+        <a href="/" class="btn-outline btn-small">← Back to Home</a>
+        <a href="/scripts" class="btn-primary btn-small">View Scripts</a>
+        <a href="https://discord.com/invite/VsFQq5s6" target="_blank" class="btn-ghost btn-small">Join Discord</a>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="container footer-grid">
+    <div>
+      <div class="logo">
+        <span class="logo-icon">
+          <img src="/img/ExLogo2.png" alt="ExHub Logo" style="width:100%;height:100%;object-fit:cover;border-radius:12px;" />
+        </span>
+      </div>
+      <p class="footer-copy">© <%= new Date().getFullYear() %> ExHub.</p>
+    </div>
+  </div>
+</footer>
+
+<!-- Proteksi dasar: blokir klik kanan + beberapa shortcut DevTools -->
+<script src="/js/protect-devtools.js"></script>
+
+</body>
+</html>

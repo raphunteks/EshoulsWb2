@@ -1,0 +1,1540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title><%= title || 'Admin – Discord Key Manager' %></title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="color-scheme" content="dark" />
+  <link rel="icon" type="image/png" href="/img/ExLogo2.png" />
+  <!-- CSS PANEL V2 -->
+  <link rel="stylesheet" href="/css/mainv2.css" />
+</head>
+<body class="page-dark admin-page admin-page--discord">
+  <div class="container">
+    <div class="admin-dashboard discord-admin-page">
+      <!-- ================= HEADER + METRICS + SEARCH ================= -->
+      <div class="key-admin-shell admin-key-shell">
+        <header class="key-admin-header admin-key-header">
+          <div class="key-admin-header-main admin-key-header-main">
+            <div class="key-admin-header-topline">
+              <h1 class="key-admin-title admin-key-title">
+                Admin – Discord User &amp; Key Manager
+              </h1>
+
+              <% if (typeof isAdmin !== 'undefined' && isAdmin) { %>
+                <span class="badge badge-admin-session">
+                  <span class="badge-dot"></span>
+                  Admin session
+                </span>
+              <% } %>
+            </div>
+
+            <p class="key-admin-subtitle admin-key-subtitle">
+              Monitor semua <strong>user Discord</strong> yang pernah order / redeem key
+              di sistem ExHub. Lihat total key per user, status <strong>Paid / Free</strong>,
+              time left (countdown), flag <code>banned</code>, dan kelola key per user
+              secara langsung. Semua waktu (login &amp; key expiry) ditampilkan dalam zona
+              <strong>WITA</strong> dan <strong>WIB</strong>.
+            </p>
+
+            <div class="key-admin-pill-row">
+              <span class="key-admin-pill">
+                <span class="key-admin-pill-dot"></span>
+                Discord Orders &amp; Key Activity
+              </span>
+              <span class="key-admin-pill">
+                <span class="key-admin-pill-dot"></span>
+                Paid / Free Keys per Discord Account
+              </span>
+            </div>
+          </div>
+
+          <div class="key-admin-header-actions admin-key-header-actions">
+            <a href="/admin" class="key-btn key-btn-xs key-btn-outline">
+              ← Back to Admin Dashboard
+            </a>
+          </div>
+        </header>
+
+        <!-- METRICS DISCORD GLOBAL -->
+        <div class="key-admin-metrics admin-key-metrics">
+          <div class="key-admin-metric-card">
+            <div class="key-admin-metric-label">Total Discord Users</div>
+            <div class="key-admin-metric-value">
+              <%= typeof totalDiscordUsers !== 'undefined' ? totalDiscordUsers : 0 %>
+            </div>
+            <div class="key-admin-metric-sub">
+              Akun Discord yang tercatat memiliki aktivitas key.
+            </div>
+          </div>
+
+          <div class="key-admin-metric-card">
+            <div class="key-admin-metric-label">Total Keys (Paid + Free)</div>
+            <div class="key-admin-metric-value">
+              <%= typeof totalKeysCount !== 'undefined' ? totalKeysCount : 0 %>
+            </div>
+            <div class="key-admin-metric-sub">
+              Akumulasi semua key yang terikat ke Discord users.
+            </div>
+          </div>
+
+          <div class="key-admin-metric-card">
+            <div class="key-admin-metric-label">Total Paid Keys</div>
+            <div class="key-admin-metric-value">
+              <%= typeof totalPaidKeysCount !== 'undefined' ? totalPaidKeysCount : 0 %>
+            </div>
+            <div class="key-admin-metric-sub">
+              Key berbayar (Month / Lifetime / plan lain).
+            </div>
+          </div>
+
+          <div class="key-admin-metric-card">
+            <div class="key-admin-metric-label">Total Free Keys</div>
+            <div class="key-admin-metric-value">
+              <%= typeof totalFreeKeysCount !== 'undefined' ? totalFreeKeysCount : 0 %>
+            </div>
+            <div class="key-admin-metric-sub">
+              Free key dari Work.ink / Linkvertise / ExHub Free.
+            </div>
+          </div>
+
+          <div class="key-admin-metric-card">
+            <div class="key-admin-metric-label">Active Keys</div>
+            <div class="key-admin-metric-value">
+              <%= typeof activeKeysCount !== 'undefined' ? activeKeysCount : 0 %>
+            </div>
+            <div class="key-admin-metric-sub">
+              Key yang masih valid (belum expired &amp; belum deleted).
+            </div>
+          </div>
+
+          <div class="key-admin-metric-card">
+            <div class="key-admin-metric-label">Banned Users</div>
+            <div class="key-admin-metric-value">
+              <%= typeof bannedUsersCount !== 'undefined' ? bannedUsersCount : 0 %>
+            </div>
+            <div class="key-admin-metric-sub">
+              Akun yang di-flag <code>banned</code> di profil Discord ExHub.
+            </div>
+          </div>
+        </div>
+
+        <%
+          // ======================
+          // PAGINATION & PAGE SIZE (sinkron dengan serverv2.js)
+          // ======================
+          var pageSizeOptionsLocal =
+            (typeof pageSizeOptions !== 'undefined' && pageSizeOptions && pageSizeOptions.length)
+              ? pageSizeOptions
+              : [25, 50, 100, 200];
+
+          var currentPage =
+            (typeof page !== 'undefined' && page) ? parseInt(page, 10) : 1;
+          if (!currentPage || currentPage < 1) currentPage = 1;
+
+          var pageSizeVal =
+            (typeof pageSize !== 'undefined' && pageSize) ? parseInt(pageSize, 10) : 25;
+          if (pageSizeOptionsLocal.indexOf(pageSizeVal) === -1) pageSizeVal = 25;
+
+          // totalFilteredUsers dikirim server setelah filter; fallback -> totalDiscordUsers -> userStats.length
+          var totalRowsAll =
+            (typeof totalFilteredUsers !== 'undefined' && totalFilteredUsers != null)
+              ? totalFilteredUsers
+              : (typeof totalDiscordUsers !== 'undefined' && totalDiscordUsers != null
+                  ? totalDiscordUsers
+                  : (userStats ? userStats.length : 0));
+
+          var totalPagesVal =
+            (typeof totalPages !== 'undefined' && totalPages)
+              ? totalPages
+              : (totalRowsAll > 0 ? Math.ceil(totalRowsAll / pageSizeVal) : 1);
+
+          if (totalPagesVal < 1) totalPagesVal = 1;
+          if (currentPage > totalPagesVal) currentPage = totalPagesVal;
+
+          var pageStart = totalRowsAll === 0 ? 0 : ((currentPage - 1) * pageSizeVal + 1);
+          var pageEnd   = totalRowsAll === 0 ? 0 : Math.min(currentPage * pageSizeVal, totalRowsAll);
+
+          // base query (tanpa parameter page) untuk pagination
+          var qsParts = [];
+          if (typeof query !== 'undefined' && query) {
+            qsParts.push('q=' + encodeURIComponent(query));
+          }
+          if (typeof filter !== 'undefined' && filter && filter !== 'all') {
+            qsParts.push('filter=' + encodeURIComponent(filter));
+          }
+          if (pageSizeVal && pageSizeVal !== 25) {
+            qsParts.push('pageSize=' + encodeURIComponent(pageSizeVal));
+          }
+
+          var baseQs     = qsParts.length ? ('?' + qsParts.join('&')) : '';
+          var baseQsOnly = qsParts.length ? qsParts.join('&') : '';
+
+          function buildHrefPage(p) {
+            var parts = qsParts.slice();
+            if (p && p !== 1) {
+              parts.push('page=' + encodeURIComponent(p));
+            }
+            var qs = parts.length ? ('?' + parts.join('&')) : '';
+            return '/admin/discord' + qs;
+          }
+
+          function buildManageHref(discordId) {
+            var parts = [];
+            parts.push('user=' + encodeURIComponent(discordId));
+            if (typeof query !== 'undefined' && query) {
+              parts.push('q=' + encodeURIComponent(query));
+            }
+            if (typeof filter !== 'undefined' && filter && filter !== 'all') {
+              parts.push('filter=' + encodeURIComponent(filter));
+            }
+            if (pageSizeVal && pageSizeVal !== 25) {
+              parts.push('pageSize=' + encodeURIComponent(pageSizeVal));
+            }
+            if (currentPage && currentPage !== 1) {
+              parts.push('page=' + encodeURIComponent(currentPage));
+            }
+            return '/admin/discord?' + parts.join('&');
+          }
+        %>
+
+        <!-- SEARCH / FILTER + PAGE SIZE BAR -->
+        <form
+          action="/admin/discord"
+          method="GET"
+          class="key-admin-filters"
+          autocomplete="off"
+        >
+          <div class="key-admin-filters-group">
+            <span>Search User</span>
+            <input
+              type="text"
+              name="q"
+              class="key-input"
+              placeholder="Cari username / tag / Discord ID..."
+              value="<%= query || '' %>"
+              autocomplete="off"
+            />
+          </div>
+
+          <div class="key-admin-filters-group">
+            <span>Filter</span>
+            <select name="filter" class="key-select">
+              <%
+                var f = filter || 'all';
+              %>
+              <option value="all" <%= f === 'all' ? 'selected' : '' %>>Semua</option>
+              <option value="hasKeys" <%= f === 'hasKeys' ? 'selected' : '' %>>
+                Hanya yang punya key
+              </option>
+              <option value="noKeys" <%= f === 'noKeys' ? 'selected' : '' %>>
+                Tanpa key
+              </option>
+              <option value="banned" <%= f === 'banned' ? 'selected' : '' %>>
+                Banned saja
+              </option>
+              <option value="notBanned" <%= f === 'notBanned' ? 'selected' : '' %>>
+                Tidak banned
+              </option>
+            </select>
+          </div>
+
+          <!-- PAGE SIZE SELECT -->
+          <div class="key-admin-filters-group">
+            <span>Rows per page</span>
+            <select name="pageSize" class="key-select">
+              <% pageSizeOptionsLocal.forEach(function(opt) { %>
+                <option
+                  value="<%= opt %>"
+                  <%= pageSizeVal === opt ? 'selected' : '' %>
+                ><%= opt %></option>
+              <% }); %>
+            </select>
+          </div>
+
+          <div class="key-admin-filters-actions">
+            <button type="submit" class="key-btn key-btn-xs key-btn-outline">
+              Apply
+            </button>
+
+            <% if (query || (filter && filter !== 'all') || (pageSizeVal && pageSizeVal !== 25)) { %>
+              <a href="/admin/discord" class="key-btn key-btn-xs key-btn-ghost">
+                Reset
+              </a>
+            <% } %>
+          </div>
+        </form>
+      </div>
+
+      <%
+        // =========================
+        // GLOBAL CONFIG UNTUK /getfreekey
+        // =========================
+        var freeCfg   = (typeof freeKeyUiConfig !== 'undefined' && freeKeyUiConfig) ? freeKeyUiConfig : {};
+        var fkGlobal  = freeCfg.global      || {};
+        var fkWorkink = freeCfg.workink     || {};
+        var fkLinkv   = freeCfg.linkvertise || {};
+
+        var freeKeyTtlHoursVal =
+          (typeof freeKeyTtlHours !== 'undefined' && freeKeyTtlHours != null)
+            ? freeKeyTtlHours
+            : 3;
+
+        var paidPlan = (typeof paidPlanConfig !== 'undefined' && paidPlanConfig) ? paidPlanConfig : {};
+        var paidMonthDaysVal =
+          (typeof paidPlan.monthDays !== 'undefined' && paidPlan.monthDays != null)
+            ? paidPlan.monthDays
+            : 30;
+        var paidLifetimeDaysVal =
+          (typeof paidPlan.lifetimeDays !== 'undefined' && paidPlan.lifetimeDays != null)
+            ? paidPlan.lifetimeDays
+            : 365;
+
+        var defaultHeroSubtitle =
+          fkGlobal.dashboardCaption ||
+          'Complete a quick verification to get your ExHub key and start using our scripts.';
+
+        var defaultBullet1 =
+          fkGlobal.bullet1 ||
+          'Secure & HWID-aware key system.';
+
+        var defaultBullet2 =
+          fkGlobal.bullet2 ||
+          'Instant delivery right after verification.';
+
+        var defaultValidityLabel =
+          fkGlobal.validityLabel ||
+          fkGlobal.bullet3 ||
+          (freeKeyTtlHoursVal + 'h validity, easy renew when expired.');
+
+        var defaultWorkinkDesc =
+          fkWorkink.dashboardDescription ||
+          'Complete a short task and get rewarded. Takes less than 2 minutes.';
+
+        var defaultLinkvDesc =
+          fkLinkv.dashboardDescription ||
+          'Complete a short task and get rewarded. Takes less than 2 minutes.';
+      %>
+
+      <!-- ================= BODY (GLOBAL CONFIG + USER OVERVIEW + DETAIL) ================= -->
+      <main class="key-admin-main">
+
+        <!-- ========== GLOBAL CONFIG: GET FREE KEY UI & TTL ========== -->
+        <section class="card admin-card-global-config" style="margin-bottom:18px;">
+          <div class="card-header">
+            <div class="card-header-main">
+              <h2 class="section-title small">Get Free Key UI &amp; TTL Settings</h2>
+              <p class="card-description">
+                Atur teks yang tampil di halaman
+                <code>/getfreekey?ads=workink</code> dan
+                <code>/getfreekey?ads=linkvertise</code>, serta durasi default
+                <strong>Free Key</strong> (jam) dan
+                <strong>Paid Key</strong> (Month / Lifetime, dalam hari).
+                Nilai ini dibaca oleh <code>serverv2.js</code> untuk render UI dan
+                logika <em>expiresAfter</em> / renew.
+              </p>
+            </div>
+          </div>
+
+          <form
+            action="/admin/discord/save-global-key-config"
+            method="POST"
+            class="admin-global-form"
+            autocomplete="off"
+          >
+            <div
+              class="admin-global-grid"
+              style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px;"
+            >
+              <!-- KOLUM 1: HERO + BULLET -->
+              <div>
+                <h3 class="section-title xsmall">Get Free Key – Hero &amp; Bullets</h3>
+
+                <div class="admin-key-field" style="margin-top:8px;">
+                  <div class="table-sub-text">
+                    Hero subtitle (kalimat di bawah "Complete Verification")
+                  </div>
+                  <textarea
+                    name="heroSubtext"
+                    class="key-input key-input-sm"
+                    rows="2"
+                    style="resize:vertical;"
+                  ><%= defaultHeroSubtitle %></textarea>
+                </div>
+
+                <div class="admin-key-field" style="margin-top:8px;">
+                  <div class="table-sub-text">Bullet 1</div>
+                  <input
+                    type="text"
+                    name="bullet1"
+                    class="key-input key-input-sm"
+                    value="<%= defaultBullet1 %>"
+                    autocomplete="off"
+                  />
+                </div>
+
+                <div class="admin-key-field" style="margin-top:8px;">
+                  <div class="table-sub-text">Bullet 2</div>
+                  <input
+                    type="text"
+                    name="bullet2"
+                    class="key-input key-input-sm"
+                    value="<%= defaultBullet2 %>"
+                    autocomplete="off"
+                  />
+                </div>
+
+                <div class="admin-key-field" style="margin-top:8px;">
+                  <div class="table-sub-text">
+                    Bullet 3 / validity label
+                    <span class="table-sub-text" style="display:block;">
+                      Contoh: "<%= freeKeyTtlHoursVal %>h validity, easy renew when expired."
+                    </span>
+                  </div>
+                  <input
+                    type="text"
+                    name="validityLabel"
+                    class="key-input key-input-sm"
+                    value="<%= defaultValidityLabel %>"
+                    autocomplete="off"
+                  />
+                </div>
+              </div>
+
+              <!-- KOLUM 2: PROVIDER DESC + TTL -->
+              <div>
+                <h3 class="section-title xsmall">Provider Descriptions &amp; TTL</h3>
+
+                <div class="admin-key-field" style="margin-top:8px;">
+                  <div class="table-sub-text">
+                    Work.ink description (card kanan /getfreekey?ads=workink)
+                  </div>
+                  <textarea
+                    name="workinkDescription"
+                    class="key-input key-input-sm"
+                    rows="2"
+                    style="resize:vertical;"
+                  ><%= defaultWorkinkDesc %></textarea>
+                </div>
+
+                <div class="admin-key-field" style="margin-top:8px;">
+                  <div class="table-sub-text">
+                    Linkvertise description (card kanan /getfreekey?ads=linkvertise)
+                  </div>
+                  <textarea
+                    name="linkvertiseDescription"
+                    class="key-input key-input-sm"
+                    rows="2"
+                    style="resize:vertical;"
+                  ><%= defaultLinkvDesc %></textarea>
+                </div>
+
+                <div class="admin-key-field" style="margin-top:10px;">
+                  <div class="table-sub-text">
+                    Free Key TTL (jam)
+                  </div>
+                  <input
+                    type="number"
+                    name="freeKeyTtlHours"
+                    class="key-input key-input-sm"
+                    min="1"
+                    max="72"
+                    value="<%= freeKeyTtlHoursVal %>"
+                    autocomplete="off"
+                  />
+                  <div class="table-sub-text">
+                    Dipakai saat generate free key (expiresAfter) dan label validitas di UI.
+                  </div>
+                </div>
+
+                <div class="admin-key-field" style="margin-top:10px;">
+                  <div class="table-sub-text">
+                    Paid Key – Month (hari)
+                  </div>
+                  <input
+                    type="number"
+                    name="paidMonthDays"
+                    class="key-input key-input-sm"
+                    min="1"
+                    max="730"
+                    value="<%= paidMonthDaysVal %>"
+                    autocomplete="off"
+                  />
+                  <div class="table-sub-text">
+                    Dipakai sebagai durasi ketika admin / bot melakukan renew key bertipe <code>month</code>.
+                  </div>
+                </div>
+
+                <div class="admin-key-field" style="margin-top:10px;">
+                  <div class="table-sub-text">
+                    Paid Key – Lifetime (hari)
+                  </div>
+                  <input
+                    type="number"
+                    name="paidLifetimeDays"
+                    class="key-input key-input-sm"
+                    min="1"
+                    max="3650"
+                    value="<%= paidLifetimeDaysVal %>"
+                    autocomplete="off"
+                  />
+                  <div class="table-sub-text">
+                    Dipakai sebagai durasi ketika admin / bot melakukan renew key bertipe <code>lifetime</code>.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="admin-key-inline-actions" style="margin-top:16px;">
+              <button
+                type="submit"
+                class="key-btn key-btn-xs key-btn-primary"
+              >
+                Save UI &amp; TTL Settings
+              </button>
+            </div>
+          </form>
+        </section>
+
+        <!-- ========== DISCORD USERS OVERVIEW (FULL WIDTH) ========== -->
+        <section class="card admin-card-user-list">
+          <div class="card-header">
+            <div class="card-header-main">
+              <h2 class="section-title small">Discord Users Overview</h2>
+              <p class="card-description">
+                Daftar akun Discord yang tercatat memiliki key di sistem ExHub.
+                Klik <strong>Manage</strong> untuk melihat detail profil &amp; semua key
+                milik user tersebut. Waktu login dan key expiry ditampilkan sebagai
+                <strong>WITA</strong> dan <strong>WIB</strong>.
+              </p>
+            </div>
+          </div>
+
+          <% if (userStats && userStats.length > 0) { %>
+            <div class="table-wrapper key-admin-table-wrapper">
+              <table class="table table-compact key-table-activity" id="discord-users-table">
+                <thead>
+                  <tr>
+                    <th>Discord User</th>
+                    <th>Keys (Total / Active)</th>
+                    <th>Paid / Free</th>
+                    <th>Last Login</th>
+                    <th>Last Key Expires</th>
+                    <th>STATUS KEY</th>
+                    <th>STATUS ACC DC</th>
+                    <th class="key-col-actions">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <% userStats.forEach(function(row) { %>
+                    <tr
+                      class="discord-user-row <%= selectedUser && selectedUser.discordId === row.discordId ? 'key-row-highlight' : '' %> <%= row.banned ? 'discord-user-row--banned' : '' %>"
+                      data-discord-id="<%= row.discordId %>"
+                    >
+                      <!-- DISCORD USER -->
+                      <td class="table-main-text">
+                        <div class="discord-user-cell">
+                          <div class="discord-user-avatar">
+                            <% if (row.avatarUrl) { %>
+                              <img
+                                src="<%= row.avatarUrl %>"
+                                alt="Avatar"
+                                class="avatar-img avatar-img--sm"
+                              />
+                            <% } else { %>
+                              <div class="avatar-fallback avatar-fallback--sm">
+                                <%= (row.globalName || row.username || '?').charAt(0).toUpperCase() %>
+                              </div>
+                            <% } %>
+                          </div>
+                          <div class="discord-user-meta">
+                            <div class="discord-user-name">
+                              <%= row.globalName || row.username || 'Unknown' %>
+                            </div>
+                            <div class="table-sub-text mono">
+                              <%= row.tag || ((row.username || 'user') + '#' + (row.discriminator || '0000')) %>
+                            </div>
+                            <div class="table-sub-text mono">
+                              ID: <%= row.discordId %>
+                            </div>
+                            <% if (typeof row.guildCount !== 'undefined') { %>
+                              <div class="table-sub-text">
+                                Guilds: <%= row.guildCount %> server
+                              </div>
+                            <% } %>
+                          </div>
+                        </div>
+                      </td>
+
+                      <!-- KEYS (TOTAL / ACTIVE) -->
+                      <td class="table-main-text">
+                        <div><strong><%= row.totalKeys || 0 %></strong> total</div>
+                        <div class="table-sub-text">
+                          <%= row.activeKeys || 0 %> active
+                        </div>
+                      </td>
+
+                      <!-- PAID / FREE -->
+                      <td class="table-main-text">
+                        <div><%= row.paidKeys || 0 %> paid</div>
+                        <div class="table-sub-text">
+                          <%= row.freeKeys || 0 %> free
+                        </div>
+                      </td>
+
+                      <!-- LAST LOGIN -->
+                      <td class="table-main-text">
+                        <% if (row.lastLoginAtWITA || row.lastLoginAtWIB) { %>
+                          <div><%= row.lastLoginAtWITA || '-' %></div>
+                          <div class="table-sub-text"><%= row.lastLoginAtWIB || '' %></div>
+                        <% } else { %>
+                          <div><%= row.lastLoginAtLabel || '-' %></div>
+                        <% } %>
+                      </td>
+
+                      <!-- LAST KEY EXPIRES -->
+                      <td class="table-main-text">
+                        <% if (row.lastKeyExpiresAtWITA || row.lastKeyExpiresAtWIB) { %>
+                          <div><%= row.lastKeyExpiresAtWITA || '-' %></div>
+                          <div class="table-sub-text"><%= row.lastKeyExpiresAtWIB || '' %></div>
+                        <% } else { %>
+                          <div><%= row.lastKeyExpiresAtLabel || '-' %></div>
+                        <% } %>
+                      </td>
+
+                      <!-- STATUS KEY -->
+                      <td class="table-main-text">
+                        <%
+                          var banned = !!row.banned;
+                          var totalKeysRow = row.totalKeys || 0;
+                          var activeKeysRow = row.activeKeys || 0;
+                          var statusKeyLabel;
+                          var statusKeyClass;
+
+                          if (totalKeysRow === 0) {
+                            statusKeyLabel = 'No Keys';
+                            statusKeyClass = 'status-pill status-pill--pending';
+                          } else if (activeKeysRow > 0) {
+                            statusKeyLabel = 'Active';
+                            statusKeyClass = 'status-pill status-pill--active';
+                          } else {
+                            statusKeyLabel = 'Expired';
+                            statusKeyClass = 'status-pill status-pill--expired';
+                          }
+                        %>
+                        <span class="<%= statusKeyClass %>">
+                          <span class="status-pill-dot"></span>
+                          <span class="status-pill-text"><%= statusKeyLabel %></span>
+                        </span>
+                      </td>
+
+                      <!-- STATUS ACC DC -->
+                      <td class="table-main-text">
+                        <%
+                          var statusAccLabel = banned ? 'Banned' : 'Active';
+                          var statusAccClass = banned
+                            ? 'status-pill status-pill--expired'
+                            : 'status-pill status-pill--active';
+                        %>
+                        <span class="<%= statusAccClass %>">
+                          <span class="status-pill-dot"></span>
+                          <span class="status-pill-text"><%= statusAccLabel %></span>
+                        </span>
+                      </td>
+
+                      <!-- ACTIONS -->
+                      <td class="key-cell-actions">
+                        <a
+                          href="<%= buildManageHref(row.discordId) %>"
+                          class="key-btn key-btn-xs key-btn-outline"
+                        >
+                          Manage
+                        </a>
+                      </td>
+                    </tr>
+                  <% }); %>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- PAGINATION BAR (UPGRADED UI) -->
+            <div class="pagination-bar" style="margin-top:12px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+              <div class="pagination-info table-sub-text">
+                <span>
+                  Showing
+                  <strong><%= pageStart %></strong>–<strong><%= pageEnd %></strong>
+                  of
+                  <strong><%= totalRowsAll %></strong>
+                  Discord users
+                </span>
+                <span class="pagination-info-page" style="margin-left:8px;opacity:0.8;">
+                  · Page
+                  <strong><%= currentPage %></strong>/<strong><%= totalPagesVal %></strong>
+                </span>
+              </div>
+
+              <div class="pagination-controls">
+                <ul class="pagination-list" style="display:flex;align-items:center;gap:6px;list-style:none;padding:0;margin:0;">
+                  <%
+                    var showFirstLast = totalPagesVal > 5;
+                    var prevDisabled  = currentPage <= 1;
+                    var nextDisabled  = currentPage >= totalPagesVal;
+
+                    // Window pages
+                    var maxButtons = 7;
+                    var startPage  = 1;
+                    var endPage    = totalPagesVal;
+
+                    if (totalPagesVal > maxButtons) {
+                      startPage = Math.max(1, currentPage - 2);
+                      endPage   = Math.min(totalPagesVal, currentPage + 2);
+
+                      if (startPage <= 2) {
+                        startPage = 1;
+                        endPage   = Math.min(totalPagesVal, maxButtons - 1);
+                      } else if (endPage >= totalPagesVal - 1) {
+                        endPage   = totalPagesVal;
+                        startPage = Math.max(1, totalPagesVal - (maxButtons - 2));
+                      }
+                    }
+                  %>
+
+                  <!-- FIRST -->
+                  <% if (showFirstLast) { %>
+                    <li>
+                      <% if (currentPage === 1) { %>
+                        <span class="key-btn key-btn-xs key-btn-ghost pagination-pill pagination-pill--disabled">
+                          « First
+                        </span>
+                      <% } else { %>
+                        <a href="<%= buildHrefPage(1) %>" class="key-btn key-btn-xs key-btn-ghost pagination-pill">
+                          « First
+                        </a>
+                      <% } %>
+                    </li>
+                  <% } %>
+
+                  <!-- PREV -->
+                  <li>
+                    <% if (prevDisabled) { %>
+                      <span class="key-btn key-btn-xs key-btn-ghost pagination-pill pagination-pill--disabled">
+                        ‹ Prev
+                      </span>
+                    <% } else { %>
+                      <a href="<%= buildHrefPage(currentPage - 1) %>" class="key-btn key-btn-xs key-btn-ghost pagination-pill">
+                        ‹ Prev
+                      </a>
+                    <% } %>
+                  </li>
+
+                  <!-- LEADING ELLIPSIS IF NEEDED -->
+                  <%
+                    if (startPage > 1) {
+                  %>
+                    <li>
+                      <a href="<%= buildHrefPage(1) %>" class="key-btn key-btn-xs key-btn-ghost pagination-pill">1</a>
+                    </li>
+                    <% if (startPage > 2) { %>
+                      <li><span class="pagination-ellipsis">…</span></li>
+                    <% } %>
+                  <% } %>
+
+                  <!-- PAGE NUMBERS WINDOW -->
+                  <% for (var p = startPage; p <= endPage; p++) { %>
+                    <li>
+                      <% if (p === currentPage) { %>
+                        <span class="key-btn key-btn-xs key-btn-primary pagination-pill pagination-pill--active">
+                          <%= p %>
+                        </span>
+                      <% } else { %>
+                        <a href="<%= buildHrefPage(p) %>" class="key-btn key-btn-xs key-btn-ghost pagination-pill">
+                          <%= p %>
+                        </a>
+                      <% } %>
+                    </li>
+                  <% } %>
+
+                  <!-- TRAILING ELLIPSIS IF NEEDED -->
+                  <% if (endPage < totalPagesVal) { %>
+                    <% if (endPage < totalPagesVal - 1) { %>
+                      <li><span class="pagination-ellipsis">…</span></li>
+                    <% } %>
+                    <li>
+                      <a href="<%= buildHrefPage(totalPagesVal) %>" class="key-btn key-btn-xs key-btn-ghost pagination-pill">
+                        <%= totalPagesVal %></a>
+                    </li>
+                  <% } %>
+
+                  <!-- NEXT -->
+                  <li>
+                    <% if (nextDisabled) { %>
+                      <span class="key-btn key-btn-xs key-btn-ghost pagination-pill pagination-pill--disabled">
+                        Next ›
+                      </span>
+                    <% } else { %>
+                      <a href="<%= buildHrefPage(currentPage + 1) %>" class="key-btn key-btn-xs key-btn-ghost pagination-pill">
+                        Next ›
+                      </a>
+                    <% } %>
+                  </li>
+
+                  <!-- LAST -->
+                  <% if (showFirstLast) { %>
+                    <li>
+                      <% if (currentPage === totalPagesVal) { %>
+                        <span class="key-btn key-btn-xs key-btn-ghost pagination-pill pagination-pill--disabled">
+                          Last »
+                        </span>
+                      <% } else { %>
+                        <a href="<%= buildHrefPage(totalPagesVal) %>" class="key-btn key-btn-xs key-btn-ghost pagination-pill">
+                          Last »
+                        </a>
+                      <% } %>
+                    </li>
+                  <% } %>
+                </ul>
+              </div>
+            </div>
+          <% } else { %>
+            <div class="empty-state">
+              <p>
+                Belum ada data <strong>Discord users</strong> atau tidak ada user
+                yang cocok dengan filter pencarian.
+              </p>
+            </div>
+          <% } %>
+        </section>
+
+        <!-- ========== SELECTED USER DETAIL (2-COLUMN LAYOUT) ========== -->
+        <section class="card admin-card-user-detail" style="margin-top:18px;">
+          <div class="card-header">
+            <div class="card-header-main">
+              <h2 class="section-title small">
+                Discord User Detail
+                <% if (selectedUser && selectedUser.discordId) { %>
+                  — <span class="mono"><%= selectedUser.discordId %></span>
+                <% } else { %>
+                  (select user)
+                <% } %>
+              </h2>
+              <p class="card-description">
+                Lihat profil Discord, status banned, dan semua key milik user ini.
+                Anda dapat menghapus semua key user, menghapus / memperpanjang (renew)
+                key tertentu, mengatur <code>time left (HH:MM:SS)</code> untuk expired,
+                melakukan <strong>ban / unban</strong> akun, serta
+                <strong>Force Logout Session</strong> untuk memaksa user login ulang
+                di website ExHub, dan <strong>Reset HWID</strong> baik secara global
+                (semua key user) maupun per-key (membersihkan HWID + riwayat eksekusi
+                di backend <code>exec-users</code>). Waktu otomatis sinkron ke zona
+                <strong>WITA</strong> &amp; <strong>WIB</strong>.
+              </p>
+
+              <% if (typeof generated !== 'undefined' && generated && generatedToken && selectedUser && selectedUser.discordId) { %>
+                <p class="card-description small">
+                  Paid key
+                  <strong><%= (generatedPlan === 'lifetime' ? 'Lifetime' : 'Month') %></strong>
+                  berhasil dibuat untuk user ini:
+                  <span class="mono"><%= generatedToken %></span>
+                </p>
+              <% } %>
+            </div>
+
+            <% if (selectedUser && selectedUser.discordId) { %>
+              <div class="admin-inline-actions admin-inline-actions--stack">
+                <!-- BAN / UNBAN -->
+                <% if (selectedUser.banned) { %>
+                  <form
+                    action="/admin/discord/unban-user"
+                    method="POST"
+                    class="admin-inline-form"
+                    onsubmit="return confirm('Unban user ini dari sistem?');"
+                  >
+                    <input type="hidden" name="discordId" value="<%= selectedUser.discordId %>" />
+                    <button type="submit" class="key-btn key-btn-xs key-btn-primary">
+                      Unban User
+                    </button>
+                  </form>
+                <% } else { %>
+                  <form
+                    action="/admin/discord/ban-user"
+                    method="POST"
+                    class="admin-inline-form"
+                    onsubmit="return confirm('Ban user ini dari sistem? Semua akses key dapat dibatasi.');"
+                  >
+                    <input type="hidden" name="discordId" value="<%= selectedUser.discordId %>" />
+                    <button type="submit" class="key-btn key-btn-xs key-btn-outline">
+                      Ban User
+                    </button>
+                  </form>
+                <% } %>
+
+                <!-- FORCE SESSION LOGOUT -->
+                <form
+                  action="/admin/discord/force-logout-user"
+                  method="POST"
+                  class="admin-inline-form"
+                  onsubmit="return confirm('Force logout semua session login Discord user ini? User harus sign in ulang di website ExHub.');"
+                >
+                  <input type="hidden" name="discordId" value="<%= selectedUser.discordId %>" />
+                  <button type="submit" class="key-btn key-btn-xs key-btn-outline">
+                    Force Logout Session
+                  </button>
+                </form>
+
+                <!-- RESET HWID (ALL KEYS FOR USER) -->
+                <form
+                  action="/admin/discord/reset-hwid-user"
+                  method="POST"
+                  class="admin-inline-form"
+                  onsubmit="return confirm('Reset HWID untuk SEMUA key user ini? Data HWID & riwayat eksekusi (exec-users) akan di-clear. Lanjutkan?');"
+                >
+                  <input type="hidden" name="discordId" value="<%= selectedUser.discordId %>" />
+                  <button type="submit" class="key-btn key-btn-xs key-btn-outline key-btn-danger-soft">
+                    Reset HWID (All Keys)
+                  </button>
+                </form>
+
+                <!-- GENERATE PAID KEY: MONTH -->
+                <form
+                  action="/admin/discord/generate-paid-key"
+                  method="POST"
+                  class="admin-inline-form"
+                  onsubmit="return confirm('Generate PAID MONTH key untuk user ini?');"
+                >
+                  <input type="hidden" name="discordId" value="<%= selectedUser.discordId %>" />
+                  <input type="hidden" name="plan" value="month" />
+                  <button type="submit" class="key-btn key-btn-xs key-btn-primary">
+                    Generate Key Month
+                  </button>
+                </form>
+
+                <!-- GENERATE PAID KEY: LIFETIME -->
+                <form
+                  action="/admin/discord/generate-paid-key"
+                  method="POST"
+                  class="admin-inline-form"
+                  onsubmit="return confirm('Generate PAID LIFETIME key untuk user ini (durasi lifetime sesuai konfigurasi hari di Paid Plan)?');"
+                >
+                  <input type="hidden" name="discordId" value="<%= selectedUser.discordId %>" />
+                  <input type="hidden" name="plan" value="lifetime" />
+                  <button type="submit" class="key-btn key-btn-xs key-btn-primary">
+                    Generate Key Lifetime
+                  </button>
+                </form>
+
+                <!-- DELETE SEMUA KEY USER -->
+                <form
+                  action="/admin/discord/delete-user-keys"
+                  method="POST"
+                  class="admin-inline-form"
+                  onsubmit="return confirm('Hapus SEMUA keys milik user ini? Tindakan tidak dapat dibatalkan.');"
+                >
+                  <input type="hidden" name="discordId" value="<%= selectedUser.discordId %>" />
+                  <button type="submit" class="key-btn key-btn-xs key-btn-outline key-btn-danger-soft">
+                    Delete All User Keys
+                  </button>
+                </form>
+              </div>
+            <% } %>
+          </div>
+
+          <% if (!selectedUser || !selectedUser.discordId) { %>
+            <div class="empty-state small">
+              <p>
+                Pilih user dari tabel <strong>Discord Users Overview</strong> untuk melihat
+                detail profil dan key.
+              </p>
+            </div>
+          <% } else { %>
+            <!-- LAYOUT 2 KOLOM: PROFIL (KIRI) + KEYS (KANAN) -->
+            <div class="discord-detail-layout">
+              <!-- KIRI: DISCORD PROFILE CARD -->
+              <aside class="discord-detail-left">
+                <% if (selectedUser.bannerUrl) { %>
+                  <div class="discord-user-banner">
+                    <img
+                      src="<%= selectedUser.bannerUrl %>"
+                      alt="Banner"
+                      class="discord-user-banner-img"
+                    />
+                  </div>
+                <% } %>
+
+                <div class="discord-user-summary">
+                  <div class="discord-user-summary-main">
+                    <div class="discord-user-avatar">
+                      <% if (selectedUser.avatarUrl) { %>
+                        <img
+                          src="<%= selectedUser.avatarUrl %>"
+                          alt="Avatar"
+                          class="avatar-img avatar-img--lg"
+                        />
+                      <% } else { %>
+                        <div class="avatar-fallback avatar-fallback--lg">
+                          <%= (selectedUser.globalName || selectedUser.username || '?').charAt(0).toUpperCase() %>
+                        </div>
+                      <% } %>
+                    </div>
+                    <div class="discord-user-summary-meta">
+                      <div class="discord-user-name">
+                        <%= selectedUser.globalName || selectedUser.username || 'Unknown' %>
+                      </div>
+                      <div class="table-sub-text mono">
+                        <%= selectedUser.tag || ((selectedUser.username || 'user') + '#' + (selectedUser.discriminator || '0000')) %>
+                      </div>
+                      <div class="table-sub-text mono">
+                        ID: <%= selectedUser.discordId %>
+                      </div>
+                      <% if (typeof selectedUser.guildCount !== 'undefined') { %>
+                        <div class="table-sub-text">
+                          Guilds: <%= selectedUser.guildCount %> server
+                        </div>
+                      <% } %>
+                      <% if (selectedUser.email) { %>
+                        <div class="table-sub-text mono">
+                          Email: <%= selectedUser.email %>
+                        </div>
+                      <% } %>
+                    </div>
+                  </div>
+
+                  <div class="discord-user-summary-stats">
+                    <div class="discord-user-summary-pill">
+                      <div class="discord-user-summary-label">Total Keys</div>
+                      <div class="discord-user-summary-value">
+                        <%= selectedUserSummary && typeof selectedUserSummary.total !== 'undefined'
+                              ? selectedUserSummary.total : 0 %>
+                      </div>
+                    </div>
+                    <div class="discord-user-summary-pill">
+                      <div class="discord-user-summary-label">Paid</div>
+                      <div class="discord-user-summary-value">
+                        <%= selectedUserSummary && typeof selectedUserSummary.paid !== 'undefined'
+                              ? selectedUserSummary.paid : 0 %>
+                      </div>
+                    </div>
+                    <div class="discord-user-summary-pill">
+                      <div class="discord-user-summary-label">Free</div>
+                      <div class="discord-user-summary-value">
+                        <%= selectedUserSummary && typeof selectedUserSummary.free !== 'undefined'
+                              ? selectedUserSummary.free : 0 %>
+                      </div>
+                    </div>
+                    <div class="discord-user-summary-pill">
+                      <div class="discord-user-summary-label">Active</div>
+                      <div class="discord-user-summary-value">
+                        <%= selectedUserSummary && typeof selectedUserSummary.active !== 'undefined'
+                              ? selectedUserSummary.active : 0 %>
+                      </div>
+                    </div>
+                    <div class="discord-user-summary-pill">
+                      <div class="discord-user-summary-label">Status</div>
+                      <div class="discord-user-summary-value">
+                        <% if (selectedUser.banned) { %>
+                          BANNED
+                        <% } else { %>
+                          OK
+                        <% } %>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="discord-user-summary-footer">
+                    <div class="table-sub-text">
+                      Last Login:
+                      <% if (selectedUser.lastLoginAtWITA || selectedUser.lastLoginAtWIB) { %>
+                        <strong><%= selectedUser.lastLoginAtWITA || '-' %></strong>
+                        &nbsp;(<%= selectedUser.lastLoginAtWIB || '' %>)
+                      <% } else { %>
+                        <strong><%= selectedUser.lastLoginAtLabel || '-' %></strong>
+                      <% } %>
+                    </div>
+                  </div>
+                </div>
+              </aside>
+
+              <!-- KANAN: KEY MANAGEMENT -->
+              <div class="discord-detail-right">
+                <% if (!selectedUserKeys || selectedUserKeys.length === 0) { %>
+                  <div class="empty-state small">
+                    <p>
+                      Tidak ada key yang tercatat untuk user ini
+                      (kemungkinan semua sudah dihapus atau belum pernah order).
+                    </p>
+                  </div>
+                <% } else { %>
+                  <div class="discord-keys-header">
+                    <div>
+                      <h3 class="section-title xsmall">Key Management</h3>
+                      <p class="card-description small">
+                        Total keys milik user ini:
+                        <strong><%= selectedUserKeys.length %></strong>.
+                        Anda dapat mengubah <code>createdAt</code>,
+                        mengatur <code>time left</code>,
+                        menjalankan <strong>Renew</strong>, <strong>Delete</strong>,
+                        serta <strong>Reset HWID</strong> per key.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div class="table-wrapper key-admin-table-wrapper">
+                    <table class="table table-compact key-table-activity key-table-activity--detail">
+                      <thead>
+                        <tr>
+                          <th>Token</th>
+                          <th>Tier / Type</th>
+                          <th>Created / Expires</th>
+                          <th>Status</th>
+                          <th class="key-col-actions">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <% selectedUserKeys.forEach(function(k) { %>
+                          <tr
+                            id="discord-<%= encodeURIComponent(selectedUser.discordId) %>-token-<%= encodeURIComponent(k.token || k.key) %>"
+                            data-key-tier="<%= k.free ? 'free' : 'paid' %>"
+                          >
+                            <!-- TOKEN -->
+                            <td class="key-cell-token">
+                              <div class="token-row">
+                                <span class="key-token mono"><%= k.token || k.key %></span>
+                              </div>
+                              <div class="table-sub-text">
+                                <%= k.provider || k.source || (k.free ? 'Free' : 'Paid') %>
+                              </div>
+                            </td>
+
+                            <!-- TIER / TYPE -->
+                            <td class="table-main-text">
+                              <div class="key-tier-label">
+                                <strong>
+                                  <%= (k.tier || k.type || (k.free ? 'Free' : 'Paid')) %>
+                                </strong>
+                              </div>
+                              <div class="table-sub-text">
+                                <% if (k.free) { %>
+                                  Free key
+                                <% } else { %>
+                                  Paid key
+                                <% } %>
+                              </div>
+                            </td>
+
+                            <!-- CREATED / EXPIRES (INLINE FORM) -->
+                            <td class="key-cell-edit">
+                              <form
+                                action="/admin/discord/update-key"
+                                method="POST"
+                                class="admin-key-inline-form"
+                                autocomplete="off"
+                              >
+                                <input type="hidden" name="discordId" value="<%= selectedUser.discordId %>" />
+                                <input type="hidden" name="token" value="<%= k.token || k.key %>" />
+
+                                <div class="admin-key-inline-grid">
+                                  <!-- CREATED AT (ABSOLUTE) -->
+                                  <div class="admin-key-field">
+                                    <div class="table-sub-text">createdAt (ISO / timestamp)</div>
+                                    <input
+                                      type="text"
+                                      name="createdAt"
+                                      class="key-input key-input-sm"
+                                      value="<%= k.createdAt || '' %>"
+                                      placeholder="ISO / timestamp"
+                                      autocomplete="off"
+                                    />
+                                    <div class="table-sub-text">
+                                      <%= k.createdAtLabel || '-' %>
+                                    </div>
+                                  </div>
+
+                                  <!-- EXPIRES TTL (RELATIVE, HH:MM:SS) -->
+                                  <div class="admin-key-field">
+                                    <div class="table-sub-text">
+                                      time left (HH:MM:SS)
+                                    </div>
+                                    <input
+                                      type="text"
+                                      name="expiresAt"
+                                      class="key-input key-input-sm admin-ttl-input"
+                                      inputmode="numeric"
+                                      pattern="[0-9:]*"
+                                      value="<%= (k.status === 'Active' && k.timeLeftLabel && k.timeLeftLabel !== 'Expired') ? k.timeLeftLabel : '' %>"
+                                      placeholder="HH:MM:SS"
+                                      autocomplete="off"
+                                    />
+                                    <div class="table-sub-text">
+                                      Current: <%= k.timeLeftLabel || '-' %>
+                                    </div>
+                                  </div>
+
+                                  <!-- EXPIRES LABEL (ABSOLUTE WITA / WIB) -->
+                                  <div class="admin-key-field admin-key-field--full">
+                                    <div class="table-sub-text">expiresAt (WITA / WIB)</div>
+                                    <div class="table-sub-text">
+                                      <%= k.expiresAtLabel || '-' %>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div class="admin-key-inline-actions">
+                                  <button
+                                    type="submit"
+                                    class="key-btn key-btn-xs key-btn-primary"
+                                  >
+                                    Save
+                                  </button>
+                                </div>
+                              </form>
+                            </td>
+
+                            <!-- STATUS + LIVE COUNTDOWN -->
+                            <td class="key-cell-status">
+                              <%
+                                var statusLabelDetail = k.status || 'Active';
+                                var statusClassDetail =
+                                  statusLabelDetail === 'Active'
+                                    ? 'status-pill status-pill--active'
+                                    : statusLabelDetail === 'Expired'
+                                    ? 'status-pill status-pill--expired'
+                                    : statusLabelDetail === 'Deleted'
+                                    ? 'status-pill status-pill--expired'
+                                    : 'status-pill status-pill--pending';
+                              %>
+                              <span
+                                class="<%= statusClassDetail %>"
+                                data-status-pill="1"
+                                data-token="<%= k.token || k.key %>"
+                              >
+                                <span class="status-pill-dot"></span>
+                                <span class="status-pill-text"><%= statusLabelDetail %></span>
+                              </span>
+                              <div
+                                class="table-sub-text time-left-container"
+                                data-token="<%= k.token || k.key %>"
+                                data-expires-ms="<%= k.expiresAtMs || '' %>"
+                              >
+                                Time left:
+                                <span class="time-left-text">
+                                  <%= k.timeLeftLabel || '-' %>
+                                </span>
+                              </div>
+                            </td>
+
+                            <!-- ACTIONS -->
+                            <td class="key-cell-actions key-cell-actions--vertical">
+                              <!-- RENEW -->
+                              <form
+                                action="/admin/discord/renew-key"
+                                method="POST"
+                                class="admin-inline-form"
+                                onsubmit="return confirm('Renew key ini (extend expiry)?');"
+                              >
+                                <input type="hidden" name="discordId" value="<%= selectedUser.discordId %>" />
+                                <input type="hidden" name="token" value="<%= k.token || k.key %>" />
+                                <button
+                                  type="submit"
+                                  class="key-btn key-btn-xs key-btn-ghost"
+                                >
+                                  Renew
+                                </button>
+                              </form>
+
+                              <!-- RESET HWID (PER KEY) -->
+                              <form
+                                action="/admin/discord/reset-hwid-key"
+                                method="POST"
+                                class="admin-inline-form"
+                                onsubmit="return confirm('Reset HWID hanya untuk key ini? Data HWID & riwayat eksekusi (exec-users) key ini akan di-reset. Lanjutkan?');"
+                              >
+                                <input type="hidden" name="discordId" value="<%= selectedUser.discordId %>" />
+                                <input type="hidden" name="token" value="<%= k.token || k.key %>" />
+                                <button
+                                  type="submit"
+                                  class="key-btn key-btn-xs key-btn-ghost"
+                                >
+                                  Reset HWID
+                                </button>
+                              </form>
+
+                              <!-- DELETE -->
+                              <form
+                                action="/admin/discord/delete-key"
+                                method="POST"
+                                class="admin-inline-form"
+                                onsubmit="return confirm('Delete key ini dari akun user?');"
+                              >
+                                <input type="hidden" name="discordId" value="<%= selectedUser.discordId %>" />
+                                <input type="hidden" name="token" value="<%= k.token || k.key %>" />
+                                <button
+                                  type="submit"
+                                  class="key-btn key-btn-xs key-btn-outline key-btn-danger-soft"
+                                >
+                                  Delete
+                                </button>
+                              </form>
+                            </td>
+                          </tr>
+                        <% }); %>
+                      </tbody>
+                    </table>
+                  </div>
+                <% } %>
+              </div>
+            </div>
+          <% } %>
+        </section>
+
+        <!-- ========== USER EXEC DETAIL (PER KEY / PER DISCORD USER) ========== -->
+        <section class="card admin-card-user-exec" style="margin-top:18px;">
+          <div class="card-header">
+            <div class="card-header-main">
+              <h2 class="section-title small">
+                User Exec Detail
+                <% if (selectedUser && selectedUser.discordId) { %>
+                  — <span class="mono">
+                    <%= selectedUser.globalName || selectedUser.username || selectedUser.discordId %>
+                  </span>
+                <% } else { %>
+                  (select user)
+                <% } %>
+              </h2>
+              <p class="card-description">
+                Ringkasan <strong>data eksekusi loader</strong> per key untuk user ini,
+                diambil dari tracking <code>/api/exec</code>. Setiap baris merepresentasikan
+                1 KEY, dihubungkan ke entry <code>exec-users</code> berdasarkan
+                <code>keyToken</code>, sehingga <strong>IP, Roblox username, HWID,
+                totalExecutes, executorUse, dan riwayat map (allMapList)</strong> selalu
+                sesuai dengan KEY yang dipakai. Fitur <strong>Reset HWID</strong> di atas
+                akan mereset HWID & riwayat eksekusi yang ditampilkan di tabel ini.
+              </p>
+            </div>
+          </div>
+
+          <% if (!selectedUser || !selectedUser.discordId) { %>
+            <div class="empty-state small">
+              <p>
+                Pilih user dari tabel <strong>Discord Users Overview</strong> untuk melihat
+                detail eksekusi per key.
+              </p>
+            </div>
+          <% } else if (!selectedUserKeys || selectedUserKeys.length === 0) { %>
+            <div class="empty-state small">
+              <p>
+                User ini belum memiliki key, sehingga belum ada data eksekusi yang bisa
+                ditampilkan.
+              </p>
+            </div>
+          <% } else { %>
+            <%
+              // Cek apakah ada minimal 1 key dengan execStats
+              var hasExecStats = selectedUserKeys.some(function(k) {
+                return k && k.execStats;
+              });
+            %>
+
+            <% if (!hasExecStats) { %>
+              <div class="empty-state small">
+                <p>
+                  Belum ada data eksekusi yang ter-link ke key user ini.
+                  Pastikan backend <code>/admin/discord</code> sudah mengisi
+                  <code>k.execStats</code> per token dari data <code>exec-users</code>.
+                </p>
+              </div>
+            <% } else { %>
+              <div class="table-wrapper key-admin-table-wrapper">
+                <table class="table table-compact key-table-activity key-table-activity--detail">
+                  <thead>
+                    <tr>
+                      <th>Key Token</th>
+                      <th>Roblox User</th>
+                      <th>HWID / Executor</th>
+                      <th>IP &amp; Total Exec</th>
+                      <th>Map History (allMapList)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <% selectedUserKeys.forEach(function(k) { 
+                         var es = k.execStats || {};
+                         var maps = Array.isArray(es.allMapList) ? es.allMapList : [];
+                    %>
+                      <tr>
+                        <!-- KEY TOKEN -->
+                        <td class="table-main-text">
+                          <div class="mono"><strong><%= k.token || k.key %></strong></div>
+                          <div class="table-sub-text">
+                            <%= k.provider || k.source || (k.free ? 'Free' : 'Paid') %>
+                          </div>
+                        </td>
+
+                        <!-- ROBLOX USER -->
+                        <td class="table-main-text">
+                          <% if (es && (es.username || es.displayName || es.userId)) { %>
+                            <div>
+                              <strong><%= es.username || '(no username)' %></strong>
+                              <% if (es.displayName) { %>
+                                <span class="table-sub-text">
+                                  (<%= es.displayName %>)
+                                </span>
+                              <% } %>
+                            </div>
+                            <div class="table-sub-text mono">
+                              User ID Roblox:
+                              <%= es.userId != null ? es.userId : '-' %>
+                            </div>
+                          <% } else { %>
+                            <div class="table-sub-text">
+                              No execution data for this key.
+                            </div>
+                          <% } %>
+                        </td>
+
+                        <!-- HWID / EXECUTOR -->
+                        <td class="table-main-text">
+                          <div class="table-sub-text mono">
+                            HWID:
+                            <%= es.hwid || '-' %>
+                          </div>
+                          <div class="table-sub-text">
+                            Executor:
+                            <strong><%= es.executorUse || '-' %></strong>
+                          </div>
+                        </td>
+
+                        <!-- IP & TOTAL EXEC -->
+                        <td class="table-main-text">
+                          <div class="table-sub-text mono">
+                            IP:
+                            <%= es.lastIp || es.ip || '-' %>
+                          </div>
+                          <div class="table-sub-text">
+                            totalExecutes:
+                            <strong><%= es.totalExecutes != null ? es.totalExecutes : '-' %></strong>
+                          </div>
+                        </td>
+
+                        <!-- MAP HISTORY -->
+                        <td class="table-main-text">
+                          <% if (!maps.length) { %>
+                            <div class="table-sub-text">
+                              No map history recorded for this key.
+                            </div>
+                          <% } else { %>
+                            <div class="discord-map-history">
+                              <% maps.slice(0, 3).forEach(function(m) { %>
+                                <div class="discord-map-chip">
+                                  <div class="discord-map-chip-main">
+                                    <%= m.mapName || 'Unknown Map' %>
+                                  </div>
+                                  <div class="discord-map-chip-sub mono">
+                                    PID: <%= m.placeId || '-' %>
+                                    <% if (m.gameId) { %>
+                                      &nbsp;| GameID: <%= m.gameId %>
+                                    <% } %>
+                                  </div>
+                                  <% if (Array.isArray(m.serverIds) && m.serverIds.length) { %>
+                                    <div class="discord-map-chip-sub mono">
+                                      ServerIds: <%= m.serverIds.join(', ') %>
+                                    </div>
+                                  <% } else if (m.serverId) { %>
+                                    <div class="discord-map-chip-sub mono">
+                                      ServerId: <%= m.serverId %>
+                                    </div>
+                                  <% } %>
+                                </div>
+                              <% }); %>
+
+                              <% if (maps.length > 3) { %>
+                                <div class="discord-map-chip discord-map-chip--more">
+                                  +<%= maps.length - 3 %> more map(s)
+                                </div>
+                              <% } %>
+                            </div>
+                          <% } %>
+                        </td>
+                      </tr>
+                    <% }); %>
+                  </tbody>
+                </table>
+              </div>
+            <% } %>
+          <% } %>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <!-- ==================== JS: Live Countdown ==================== -->
+  <script>
+    (function () {
+      // Realtime countdown "Time left" menggunakan expiresAtMs dari server
+      function initCountdown() {
+        var containers = document.querySelectorAll('.time-left-container[data-expires-ms]');
+        if (!containers || !containers.length) return;
+
+        function formatHHMMSS(totalSeconds) {
+          if (totalSeconds < 0) totalSeconds = 0;
+          var h = Math.floor(totalSeconds / 3600);
+          var m = Math.floor((totalSeconds % 3600) / 60);
+          var s = totalSeconds % 60;
+          var pad = function (n) {
+            return n < 10 ? '0' + n : String(n);
+          };
+          return pad(h) + ':' + pad(m) + ':' + pad(s);
+        }
+
+        function tick() {
+          var now = Date.now();
+
+          containers.forEach(function (container) {
+            var expiresStr = container.getAttribute('data-expires-ms');
+            if (!expiresStr) return;
+
+            var expiresMs = parseInt(expiresStr, 10);
+            if (!expiresMs || isNaN(expiresMs)) return;
+
+            var diffMs = expiresMs - now;
+            var textEl = container.querySelector('.time-left-text');
+            if (!textEl) return;
+
+            var token = container.getAttribute('data-token') || null;
+
+            if (diffMs <= 0) {
+              textEl.textContent = 'Expired';
+              container.setAttribute('data-expires-ms', '');
+
+              if (token) {
+                var pill = document.querySelector('.status-pill[data-token="' + token + '"]');
+                if (pill) {
+                  pill.classList.remove('status-pill--active');
+                  pill.classList.remove('status-pill--pending');
+                  pill.classList.add('status-pill--expired');
+
+                  var pillText = pill.querySelector('.status-pill-text');
+                  if (pillText) {
+                    pillText.textContent = 'Expired';
+                  }
+                }
+              }
+            } else {
+              var totalSeconds = Math.floor(diffMs / 1000);
+              textEl.textContent = formatHHMMSS(totalSeconds);
+            }
+          });
+        }
+
+        tick();
+        setInterval(tick, 1000);
+      }
+
+      document.addEventListener('DOMContentLoaded', function () {
+        initCountdown();
+      });
+    })();
+  </script>
+
+  <!-- Proteksi dasar: blokir klik kanan + beberapa shortcut DevTools -->
+  <script src="/js/protect-devtools.js"></script>
+</body>
+</html>

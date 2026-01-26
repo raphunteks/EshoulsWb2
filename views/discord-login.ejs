@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>ExHub — Sign In</title>
+  <link rel="icon" type="image/png" href="/img/ExLogo2.png" />
+  <link rel="stylesheet" href="/css/mainv2.css" />
+</head>
+<body class="page-dark">
+<header class="site-header">
+  <div class="container header-inner">
+    <a href="/" class="logo">
+      <span class="logo-icon">
+        <img src="/img/ExLogo2.png" alt="ExHub Logo"
+             style="width:100%;height:100%;object-fit:cover;border-radius:12px;" />
+      </span>
+      <span class="logo-text">ExHub</span>
+    </a>
+
+    <nav class="header-nav">
+      <% if (user) { %>
+        <!-- Sudah login: tampilkan user + Dashboard + Sign Out -->
+        <div class="header-user">
+          <div class="header-user-pill">
+            <% if (user.avatar) { %>
+              <img
+                src="https://cdn.discordapp.com/avatars/<%= user.id %>/<%= user.avatar %>.png?size=64"
+                alt="Avatar"
+                class="header-user-avatar"
+              />
+            <% } else { %>
+              <span class="user-icon"></span>
+            <% } %>
+            <span class="user-name"><%= user.global_name || user.username %></span>
+          </div>
+          <a href="/dashboard" class="btn btn-subtle" style="margin:0 8px;">
+            Dashboard
+          </a>
+          <form action="/logout" method="post" style="display:inline;">
+            <button type="submit" class="btn btn-ghost">Sign Out</button>
+          </form>
+        </div>
+      <% } else { %>
+        <!-- Belum login: tombol kecil di header (CTA utama tetap di card) -->
+        <a href="/auth/discord" class="btn btn-ghost">Sign In</a>
+      <% } %>
+    </nav>
+  </div>
+</header>
+
+<main class="page-main">
+  <div class="container auth-wrapper">
+    <div class="auth-card">
+      <div class="auth-icon">
+        <span class="auth-avatar" style="overflow:hidden;display:flex;align-items:center;justify-content:center;">
+          <img
+            src="/img/discordlogo.png"
+            alt="Discord Logo"
+            style="width:56px;height:56px;object-fit:cover;border-radius:16px;"
+          />
+        </span>
+      </div>
+
+      <% if (user) { %>
+        <!-- Sudah login: jangan minta OAuth lagi -->
+        <h2 class="auth-title">You are signed in</h2>
+        <p class="auth-subtitle">
+          Your Discord account is already connected to ExHub.
+          Open your dashboard to manage keys and account metadata.
+        </p>
+
+        <a href="/dashboard" class="btn btn-primary auth-button" style="margin-top:16px;">
+          Go to Dashboard
+        </a>
+
+        <p class="auth-footnote" style="margin-top:16px;">
+          Not you? Click <strong>Sign Out</strong> in the top-right corner
+          and sign in again with a different Discord account.
+        </p>
+      <% } else { %>
+        <!-- Belum login: form Sign In normal -->
+        <h2 class="auth-title">Sign in with Discord</h2>
+        <p class="auth-subtitle">
+          Connect your Discord account to generate free keys and access
+          your ExHub license dashboard. After signing in, the bot can also
+          automatically add you to the official ExHub Discord server.
+        </p>
+
+        <% if (error) { %>
+          <% 
+            let errorMessage;
+            switch (String(error)) {
+              case "oauth":
+                errorMessage = "Authorization was cancelled or denied from Discord. Please try again and click Authorize.";
+                break;
+              case "state":
+                errorMessage = "Your login session has expired or is invalid. Please start the sign-in process again.";
+                break;
+              case "token":
+              case "tokenjson":
+                errorMessage = "Failed to exchange the authorization code for an access token. Please retry in a few moments.";
+                break;
+              case "user":
+              case "userjson":
+                errorMessage = "Failed to fetch your Discord profile. Please retry or check your network connection.";
+                break;
+              case "tokenempty":
+                errorMessage = "Discord did not return an access token. Please retry the sign-in.";
+                break;
+              case "nocode":
+                errorMessage = "No authorization code was received from Discord. Please click the button below again.";
+                break;
+              case "exception":
+                errorMessage = "Internal error occurred while processing your login. Please try again shortly.";
+                break;
+              default:
+                errorMessage = "Something went wrong during the login process (code: " + error + "). Please try again.";
+                break;
+            }
+          %>
+          <div class="auth-error" style="margin-bottom:16px;">
+            <%= errorMessage %>
+          </div>
+        <% } %>
+
+        <!-- Tombol utama: selalu ke /auth/discord (bukan link OAuth langsung) -->
+        <a href="/auth/discord" class="btn btn-discord auth-button">
+          <span class="btn-discord-icon">
+            <img
+              src="/img/discordlogo.png"
+              alt="Discord"
+              style="width:20px;height:20px;object-fit:cover;border-radius:6px;"
+            />
+          </span>
+          <span>Continue with Discord</span>
+        </a>
+
+        <p class="auth-footnote">
+          After signing in, you can open your <strong>Dashboard</strong>,
+          generate <strong>Free Keys</strong>, and view any active
+          <strong>Paid Licenses</strong> linked to your Discord account.
+        </p>
+      <% } %>
+    </div>
+  </div>
+</main>
+
+<script src="/js/protect-devtools.js"></script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+[
+  {
+    "id": "spear-fishing",
+    "name": "Spear Fishing PRO++",
+    "gameName": "Spear Fishing Farming",
+    "version": "v1.0.0b",
+    "isFree": true,
+    "status": "working",
+    "uses": 0,
+    "users": 0,
+    "thumbnail": "/img/spear-fishing-thumb.jpg",
+    "shortDescription": "Auto farm harpoon, basket & bait.",
+    "scriptFile": "spear_fishing.lua"
+  }
+]

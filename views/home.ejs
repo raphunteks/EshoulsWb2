@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>ExHub — Home</title>
+  <link rel="icon" type="image/png" href="/img/ExLogo2.png" />
+  <link rel="stylesheet" href="/css/main2.css" />
+</head>
+<body class="page-dark">
+<header class="site-header">
+  <div class="container header-inner">
+    <a href="/" class="logo">
+      <span class="logo-icon">
+        <img src="/img/ExLogo2.png" alt="ExHub Logo"
+             style="width:100%;height:100%;object-fit:cover;border-radius:12px;" />
+      </span>
+      <span class="logo-text">ExHub</span>
+    </a>
+
+    <nav class="header-nav">
+      <% if (user) { %>
+        <div class="header-user">
+          <span class="header-user-pill">
+            <span class="user-icon"></span>
+            <span class="user-name"><%= user.global_name %></span>
+          </span>
+          <a href="/dashboard" class="btn btn-subtle">Dashboard</a>
+          <form action="/logout" method="post" style="display:inline;">
+            <button type="submit" class="btn btn-ghost">Sign Out</button>
+          </form>
+        </div>
+      <% } else { %>
+        <a href="/discord-login" class="btn btn-primary">Login with Discord</a>
+      <% } %>
+    </nav>
+  </div>
+</header>
+
+<main class="page-main">
+  <div class="container">
+    <h1>ExHub Web Panel</h1>
+    <p>Connect your Discord account to manage keys and access premium scripts.</p>
+  </div>
+</main>
+</body>
+</html>

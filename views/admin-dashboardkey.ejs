@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title><%= title || 'Admin – Web Key Manager' %></title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <link rel="icon" type="image/png" href="/img/ExLogo2.png" />
+  <link rel="stylesheet" href="/css/main.css" />
+</head>
+<body class="page-dark">
+  <div class="container">
+    <div class="admin-dashboard key-admin-page">
+      <!-- ================= HEADER + METRICS + SEARCH ================= -->
+      <div class="key-admin-shell admin-key-shell">
+        <header class="key-admin-header admin-key-header">
+          <div class="key-admin-header-main admin-key-header-main">
+            <h1 class="key-admin-title admin-key-title">
+              Admin – Web Key Manager
+            </h1>
+            <p class="key-admin-subtitle admin-key-subtitle">
+              Monitor IP &amp; tokens dari sistem <strong>Generate Key</strong>.
+              Anda dapat menghapus semua token untuk 1 IP, menghapus token tertentu,
+              mengubah <code>createdAt</code> secara manual,
+              dan mengatur <code>time left (HH:MM:SS)</code> untuk expired token.
+              Semua waktu ditampilkan dalam zona <strong>WITA</strong> dan <strong>WIB</strong>.
+            </p>
+
+            <div class="key-admin-pill-row">
+              <span class="key-admin-pill">
+                <span class="key-admin-pill-dot"></span>
+                Live Key Activity
+              </span>
+              <span class="key-admin-pill">
+                <span class="key-admin-pill-dot"></span>
+                Web Key JSON Body &amp; Manual Control
+              </span>
+            </div>
+          </div>
+
+          <div class="key-admin-header-actions admin-key-header-actions">
+            <a href="/admin" class="key-btn key-btn-xs key-btn-outline">
+              ← Back to Admin Dashboard
+            </a>
+          </div>
+        </header>
+
+        <!-- METRICS RINGKAS + DEFAULT EXPIRY CONTROL -->
+        <div class="key-admin-metrics admin-key-metrics">
+          <div class="key-admin-metric-card">
+            <div class="key-admin-metric-label">Total IP</div>
+            <div class="key-admin-metric-value">
+              <%= totalIpCount || 0 %>
+            </div>
+            <div class="key-admin-metric-sub">
+              Semua IP yang pernah request key
+            </div>
+          </div>
+
+          <div class="key-admin-metric-card">
+            <div class="key-admin-metric-label">Total Keys</div>
+            <div class="key-admin-metric-value">
+              <%= totalKeysCount || 0 %>
+            </div>
+            <div class="key-admin-metric-sub">
+              Akumulasi semua token tercatat
+            </div>
+          </div>
+
+          <div class="key-admin-metric-card">
+            <div class="key-admin-metric-label">Active Keys</div>
+            <div class="key-admin-metric-value">
+              <%= activeKeysCount || 0 %>
+            </div>
+            <div class="key-admin-metric-sub">
+              Token yang masih berlaku (belum expired)
+            </div>
+          </div>
+
+          <!-- Default Expiry – bisa diubah langsung -->
+          <div class="key-admin-metric-card">
+            <div class="key-admin-metric-label">Default Expiry (hours)</div>
+            <form
+              action="/admin/keys/update-default"
+              method="POST"
+              class="key-admin-default-form"
+              autocomplete="off"
+            >
+              <input
+                type="number"
+                name="defaultKeyHours"
+                class="key-input"
+                style="max-width:90px; margin-top:4px; margin-bottom:6px;"
+                min="1"
+                max="168"
+                step="1"
+                value="<%= (typeof defaultKeyHours !== 'undefined' ? defaultKeyHours : 24) %>"
+              />
+              <button
+                type="submit"
+                class="key-btn key-btn-xs key-btn-primary"
+              >
+                Update
+              </button>
+            </form>
+            <div class="key-admin-metric-sub">
+              Berlaku untuk generate key berikutnya (bukan token lama).
+            </div>
+          </div>
+        </div>
+
+        <!-- SEARCH / FILTER BAR -->
+        <form
+          action="/admin/keys"
+          method="GET"
+          class="key-admin-filters"
+          autocomplete="off"
+        >
+          <div class="key-admin-filters-group">
+            <span>Search</span>
+            <input
+              type="text"
+              name="q"
+              placeholder="Cari IP / token / Roblox UserId..."
+              value="<%= query || '' %>"
+              autocomplete="off"
+            />
+          </div>
+
+          <button type="submit" class="key-btn key-btn-xs key-btn-outline">
+            Search
+          </button>
+
+          <% if (query) { %>
+            <a href="/admin/keys" class="key-btn key-btn-xs key-btn-ghost">
+              Clear
+            </a>
+          <% } %>
+        </form>
+      </div>
+
+      <!-- ================= BODY (IP OVERVIEW + DETAIL, STACKED) ================= -->
+      <main class="key-admin-main">
+        <!-- ========== IP OVERVIEW (FULL WIDTH) ========== -->
+        <section class="card admin-card-ip-list">
+          <div class="card-header">
+            <div class="card-header-main">
+              <h2 class="section-title small">IP Overview</h2>
+              <p class="card-description">
+                Daftar IP yang pernah mendapatkan key. Klik
+                <strong>Manage</strong> untuk lihat detail &amp; tokens IP tersebut.
+                Waktu terakhir dibuat / expired ditampilkan sebagai
+                <strong>WITA</strong> dan <strong>WIB</strong>.
+              </p>
+            </div>
+          </div>
+
+          <% if (ipStats && ipStats.length > 0) { %>
+            <div class="table-wrapper key-admin-table-wrapper">
+              <table class="table table-compact key-table-activity">
+                <thead>
+                  <tr>
+                    <th>IP Address</th>
+                    <th>Total Keys</th>
+                    <th>Active</th>
+                    <th>Last Created</th>
+                    <th>Last Expires</th>
+                    <th class="key-col-actions">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <% ipStats.forEach(function(row) { %>
+                    <tr
+                      class="<%= selectedIp && selectedIp === row.ip ? 'key-row-highlight' : '' %>"
+                    >
+                      <td class="table-main-text">
+                        <span class="mono"><%= row.ip %></span>
+                      </td>
+                      <td class="table-main-text"><%= row.totalKeys || 0 %></td>
+                      <td class="table-main-text"><%= row.activeKeys || 0 %></td>
+
+                      <!-- LAST CREATED (formatDualTimeLabelMs sudah WIB / WITA) -->
+                      <td class="table-main-text">
+                        <% if (row.lastCreatedAtWITA || row.lastCreatedAtWIB) { %>
+                          <div><%= row.lastCreatedAtWITA || '-' %></div>
+                          <div class="table-sub-text"><%= row.lastCreatedAtWIB || '' %></div>
+                        <% } else { %>
+                          <div><%= row.lastCreatedAt || '-' %></div>
+                        <% } %>
+                      </td>
+
+                      <!-- LAST EXPIRES -->
+                      <td class="table-main-text">
+                        <% if (row.lastExpiresAtWITA || row.lastExpiresAtWIB) { %>
+                          <div><%= row.lastExpiresAtWITA || '-' %></div>
+                          <div class="table-sub-text"><%= row.lastExpiresAtWIB || '' %></div>
+                        <% } else { %>
+                          <div><%= row.lastExpiresAt || '-' %></div>
+                        <% } %>
+                      </td>
+
+                      <td class="key-cell-actions">
+                        <a
+                          href="/admin/keys?ip=<%= encodeURIComponent(row.ip) %>"
+                          class="key-btn key-btn-xs key-btn-outline"
+                        >
+                          Manage
+                        </a>
+                      </td>
+                    </tr>
+                  <% }); %>
+                </tbody>
+              </table>
+            </div>
+          <% } else { %>
+            <div class="empty-state">
+              <p>
+                Belum ada data <strong>web-keys</strong> atau tidak ada IP yang
+                cocok dengan filter pencarian.
+              </p>
+            </div>
+          <% } %>
+        </section>
+
+        <!-- ========== SELECTED IP DETAIL (FULL WIDTH DI BAWAH) ========== -->
+        <section class="card admin-card-ip-detail" style="margin-top:18px;">
+          <div class="card-header">
+            <div class="card-header-main">
+              <h2 class="section-title small">
+                IP Detail
+                <% if (selectedIp) { %>
+                  — <span class="mono"><%= selectedIp %></span>
+                <% } else { %>
+                  (select IP)
+                <% } %>
+              </h2>
+              <p class="card-description">
+                Lihat semua token untuk IP tertentu, ubah
+                <code>createdAt</code>,
+                atur <code>time left (HH:MM:SS)</code> untuk expired,
+                hapus token, dan perpanjang masa aktif token via tombol
+                <strong>Renew</strong>.
+                Waktu otomatis sinkron ke zona <strong>WITA</strong> &amp; <strong>WIB</strong>.
+              </p>
+            </div>
+
+            <% if (selectedIp) { %>
+              <form
+                action="/admin/keys/delete-ip"
+                method="POST"
+                class="admin-inline-form"
+                onsubmit="return confirm('Delete ALL keys for IP <%= selectedIp %>?');"
+              >
+                <input type="hidden" name="ip" value="<%= selectedIp %>" />
+                <button type="submit" class="key-btn key-btn-xs key-btn-outline">
+                  Delete IP &amp; All Keys
+                </button>
+              </form>
+            <% } %>
+          </div>
+
+          <% if (!selectedIp) { %>
+            <div class="empty-state small">
+              <p>
+                Pilih IP dari tabel <strong>IP Overview</strong> untuk melihat
+                detail token.
+              </p>
+            </div>
+          <% } else if (!selectedKeys || selectedKeys.length === 0) { %>
+            <div class="empty-state small">
+              <p>
+                Tidak ada token yang tercatat untuk IP ini
+                (kemungkinan semua sudah expired &amp; terhapus).
+              </p>
+            </div>
+          <% } else { %>
+            <p class="card-description" style="margin-bottom:8px;">
+              Total tokens untuk IP ini:
+              <strong><%= selectedKeys.length %></strong>
+            </p>
+
+            <div class="table-wrapper key-admin-table-wrapper">
+              <table class="table table-compact key-table-activity">
+                <thead>
+                  <tr>
+                    <th>Token</th>
+                    <th>UserId</th>
+                    <th>Created / Expires</th>
+                    <th>Status</th>
+                    <th class="key-col-actions">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <% selectedKeys.forEach(function(k) { %>
+                    <tr id="token-<%= encodeURIComponent(k.token) %>">
+                      <!-- TOKEN -->
+                      <td class="key-cell-token">
+                        <span class="key-token mono"><%= k.token %></span>
+                      </td>
+
+                      <!-- USERID -->
+                      <td class="table-main-text">
+                        <% if (k.userId) { %>
+                          <span class="mono"><%= k.userId %></span>
+                        <% } else { %>
+                          <span class="table-sub-text">-</span>
+                        <% } %>
+                      </td>
+
+                      <!-- CREATED / EXPIRES (INLINE FORM) -->
+                      <td>
+                        <form
+                          action="/admin/keys/update-key"
+                          method="POST"
+                          class="admin-key-inline-form"
+                          autocomplete="off"
+                        >
+                          <input type="hidden" name="token" value="<%= k.token %>" />
+                          <input type="hidden" name="ip" value="<%= selectedIp %>" />
+
+                          <!-- CREATED AT (ABSOLUTE) -->
+                          <div class="admin-key-field">
+                            <div class="table-sub-text">createdAt (ISO / timestamp)</div>
+                            <input
+                              type="text"
+                              name="createdAt"
+                              class="key-input"
+                              value="<%= k.createdAt || '' %>"
+                              placeholder="ISO or timestamp"
+                              autocomplete="off"
+                              style="margin-top:4px; max-width:260px;"
+                            />
+                            <div class="table-sub-text">
+                              <%= k.createdAtLabel || '-' %>
+                            </div>
+                          </div>
+
+                          <!-- EXPIRES TTL (RELATIVE, HH:MM:SS) -->
+                          <div class="admin-key-field" style="margin-top:8px;">
+                            <div class="table-sub-text">
+                              time left (HH:MM:SS)
+                            </div>
+                            <input
+                              type="text"
+                              name="expiresAt"
+                              class="key-input admin-ttl-input"
+                              value="<%=
+                                (k.status === 'Active' &&
+                                 k.timeLeftLabel &&
+                                 k.timeLeftLabel !== 'Expired')
+                                  ? k.timeLeftLabel
+                                  : ''
+                              %>"
+                              placeholder="HH:MM:SS (isi untuk set TTL baru)"
+                              autocomplete="off"
+                              style="margin-top:4px; max-width:160px;"
+                            />
+                            <div class="table-sub-text">
+                              Current: <%= k.timeLeftLabel || '-' %>
+                            </div>
+                          </div>
+
+                          <!-- EXPIRES LABEL (ABSOLUTE WITA / WIB) -->
+                          <div class="admin-key-field" style="margin-top:8px;">
+                            <div class="table-sub-text">expiresAt (WITA / WIB)</div>
+                            <div class="table-sub-text">
+                              <%= k.expiresAtLabel || '-' %>
+                            </div>
+                          </div>
+
+                          <div style="margin-top:10px;">
+                            <button
+                              type="submit"
+                              class="key-btn key-btn-xs key-btn-primary"
+                            >
+                              Save
+                            </button>
+                          </div>
+                        </form>
+                      </td>
+
+                      <!-- STATUS + LIVE COUNTDOWN -->
+                      <td>
+                        <%
+                          var statusLabel = k.status || 'Active';
+                          var statusClass =
+                            statusLabel === 'Active'
+                              ? 'status-pill status-pill--active'
+                              : statusLabel === 'Expired'
+                              ? 'status-pill status-pill--expired'
+                              : 'status-pill status-pill--pending';
+                        %>
+                        <span
+                          class="<%= statusClass %>"
+                          data-status-pill="1"
+                          data-token="<%= k.token %>"
+                        >
+                          <span class="status-pill-dot"></span>
+                          <span class="status-pill-text"><%= statusLabel %></span>
+                        </span>
+                        <div
+                          class="table-sub-text time-left-container"
+                          style="margin-top:4px;"
+                          data-token="<%= k.token %>"
+                          data-expires-ms="<%= k.expiresAtMs || '' %>"
+                        >
+                          Time left:
+                          <span class="time-left-text">
+                            <%= k.timeLeftLabel || '-' %>
+                          </span>
+                        </div>
+                      </td>
+
+                      <!-- ACTIONS -->
+                      <td class="key-cell-actions">
+                        <!-- RENEW -->
+                        <form
+                          action="/admin/keys/renew-key"
+                          method="POST"
+                          class="admin-inline-form"
+                          style="margin-bottom:6px;"
+                          onsubmit="return confirm('Renew this key (extend expiry)?');"
+                        >
+                          <input type="hidden" name="token" value="<%= k.token %>" />
+                          <input type="hidden" name="ip" value="<%= selectedIp %>" />
+                          <button
+                            type="submit"
+                            class="key-btn key-btn-xs key-btn-ghost"
+                          >
+                            Renew
+                          </button>
+                        </form>
+
+                        <!-- DELETE -->
+                        <form
+                          action="/admin/keys/delete-key"
+                          method="POST"
+                          class="admin-inline-form"
+                          onsubmit="return confirm('Delete this key?');"
+                        >
+                          <input type="hidden" name="token" value="<%= k.token %>" />
+                          <input type="hidden" name="ip" value="<%= selectedIp %>" />
+                          <button
+                            type="submit"
+                            class="key-btn key-btn-xs key-btn-outline"
+                          >
+                            Delete
+                          </button>
+                        </form>
+                      </td>
+                    </tr>
+                  <% }); %>
+                </tbody>
+              </table>
+            </div>
+          <% } %>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <!-- ==================== JS: Live Countdown ==================== -->
+  <script>
+    (function () {
+      // Realtime countdown "Time left" menggunakan expiresAtMs dari server
+      function initCountdown() {
+        var containers = document.querySelectorAll('.time-left-container[data-expires-ms]');
+        if (!containers || !containers.length) return;
+
+        function formatHHMMSS(totalSeconds) {
+          if (totalSeconds < 0) totalSeconds = 0;
+          var h = Math.floor(totalSeconds / 3600);
+          var m = Math.floor((totalSeconds % 3600) / 60);
+          var s = totalSeconds % 60;
+          var pad = function (n) {
+            return n < 10 ? '0' + n : String(n);
+          };
+          return pad(h) + ':' + pad(m) + ':' + pad(s);
+        }
+
+        function tick() {
+          var now = Date.now();
+
+          containers.forEach(function (container) {
+            var expiresStr = container.getAttribute('data-expires-ms');
+            if (!expiresStr) return;
+
+            var expiresMs = parseInt(expiresStr, 10);
+            if (!expiresMs || isNaN(expiresMs)) return;
+
+            var diffMs = expiresMs - now;
+            var textEl = container.querySelector('.time-left-text');
+            if (!textEl) return;
+
+            var token = container.getAttribute('data-token') || null;
+
+            if (diffMs <= 0) {
+              textEl.textContent = 'Expired';
+              container.setAttribute('data-expires-ms', '');
+
+              if (token) {
+                var pill = document.querySelector('.status-pill[data-token="' + token + '"]');
+                if (pill) {
+                  pill.classList.remove('status-pill--active');
+                  pill.classList.remove('status-pill--pending');
+                  pill.classList.add('status-pill--expired');
+
+                  var pillText = pill.querySelector('.status-pill-text');
+                  if (pillText) {
+                    pillText.textContent = 'Expired';
+                  }
+                }
+              }
+            } else {
+              var totalSeconds = Math.floor(diffMs / 1000);
+              textEl.textContent = formatHHMMSS(totalSeconds);
+            }
+          });
+        }
+
+        tick();
+        setInterval(tick, 1000);
+      }
+
+      document.addEventListener('DOMContentLoaded', function () {
+        initCountdown();
+      });
+    })();
+  </script>
+  <!-- Proteksi dasar: blokir klik kanan + beberapa shortcut DevTools -->
+  <script src="/js/protect-devtools.js"></script>
+</body>
+</html>

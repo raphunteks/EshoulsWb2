@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>ExHub — Admin Login</title>
+  <link rel="stylesheet" href="/css/main.css" />
+</head>
+<body class="page-dark">
+
+<!-- HEADER SAMA STYLE DENGAN DASHBOARD -->
+<header class="site-header">
+  <div class="container header-inner">
+    <a href="/" class="logo">
+      <span class="logo-icon">
+        <img src="/img/ExLogo2.png" alt="ExHub" class="logo-img" />
+      </span>
+      <span class="logo-text">ExHub — Admin</span>
+    </a>
+  </div>
+</header>
+
+<main class="section admin-section">
+  <div class="container admin-login-box">
+    <!-- GLASS CARD LOGIN -->
+    <div
+      class="card"
+      style="
+        max-width: 420px;
+        margin: 0 auto;
+        padding: 24px 22px 20px;
+        border-radius: 22px;
+        background:
+          radial-gradient(circle at 0 0, rgba(123, 255, 58, 0.10), transparent 45%),
+          radial-gradient(circle at 120% 0, rgba(60, 255, 208, 0.12), transparent 55%),
+          rgba(7, 11, 22, 0.92);
+        backdrop-filter: blur(20px);
+        box-shadow: 0 32px 80px rgba(0, 0, 0, 0.9);
+        border: 1px solid rgba(148, 163, 184, 0.45);
+      "
+    >
+      <div class="card-header" style="margin-bottom: 16px;">
+        <div class="card-header-main">
+          <div
+            style="
+              font-size: 11px;
+              letter-spacing: 0.14em;
+              text-transform: uppercase;
+              color: rgba(148, 163, 184, 0.9);
+              margin-bottom: 6px;
+            "
+          >
+            ExHub Admin
+          </div>
+          <h1 class="section-title small" style="margin: 0 0 4px;">
+            Sign in to <span>Panel</span>
+          </h1>
+          <p class="card-description">
+            Login untuk mengelola script, monitor eksekusi player pengguna ExHub.
+          </p>
+        </div>
+      </div>
+
+      <% if (error) { %>
+        <div class="alert-error" style="margin-bottom: 14px;"><%= error %></div>
+      <% } %>
+
+      <form method="post" action="/admin/login" class="admin-form">
+        <label>
+          Username
+          <input
+            type="text"
+            name="username"
+            autocomplete="username"
+            required
+          />
+        </label>
+        <label>
+          Password
+          <input
+            type="password"
+            name="password"
+            autocomplete="current-password"
+            required
+          />
+        </label>
+        <button type="submit" class="btn-primary full">
+          Sign In
+        </button>
+        <a
+          href="/"
+          class="btn-ghost full"
+          style="margin-top: 8px; justify-content: center; text-align: center;"
+        >
+          Back to site
+        </a>
+      </form>
+
+      <p
+        style="
+          margin: 10px 2px 0;
+          font-size: 11px;
+          color: var(--text-muted);
+          text-align: center;
+        "
+      >
+        Protected area · Aktivitas login tercatat untuk keamanan.
+      </p>
+    </div>
+  </div>
+</main>
+
+</body>
+</html>

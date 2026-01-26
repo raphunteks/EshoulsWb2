@@ -1,0 +1,26 @@
+exhub-site/
+│  package.json
+│  server.js
+│  vercel.json
+│  .env                 # nanti diisi secret
+│
+├─config/
+│    scripts.json       # data semua game/script
+│
+├─scripts/
+│    spear_fishing.lua  # isi script Lua Anda (contoh)
+│
+├─public/
+│  ├─css/
+│  │    main.css        # styling utama (dark neon hijau)
+│  └─img/
+│       spear-fishing-thumb.jpg   # thumbnail game
+│       ExLogo2.jpg   # pavicon my web 
+│
+└─views/
+    ├─index.ejs         # landing page
+    ├─scripts.ejs       # halaman Supported Games
+    ├─get-key.ejs       # halaman Get Key
+    ├─apiy.ejs       # halaman Get Key
+    ├─admin-404.ejs   # halaman endpoint yg tdk bsa diakses oleh orang lain script lua saya
+    └─admin-dashboard.ejs # dashboard admin

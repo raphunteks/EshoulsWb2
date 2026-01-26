@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>ExHub — Get Key</title>
+  <link rel="icon" type="image/png" href="/img/ExLogo2.png" />
+  <link rel="stylesheet" href="/css/main.css" />
+</head>
+<body class="page-dark">
+
+<header class="site-header">
+  <div class="container header-inner">
+    <a href="/" class="logo">
+      <span class="logo-icon">
+        <img src="/img/ExLogo2.png" alt="ExHub Logo" style="width:100%;height:100%;object-fit:cover;border-radius:12px;" />
+      </span>
+      <span class="logo-text">ExHub</span>
+    </a>
+    <nav class="nav-links">
+      <a href="/">Home</a>
+      <a href="/scripts">Scripts</a>
+      <a href="/get-key" class="nav-active">Get Key Work.Ink</a>
+      <a href="/generatekey">Get Key Linkvertise</a>
+      <a href="https://discord.gg/exhubeta" target="_blank">Discord</a>
+      <a href="/admin/login" class="nav-pill">Login</a>
+    </nav>
+  </div>
+</header>
+
+<main class="section">
+  <div class="container">
+    <h1 class="section-title">ExHub Get <span class="accent-cycle">Your Key</span></h1>
+    <p class="section-subtitle">
+      Gunakan Work.ink/Linkvertise untuk mendapatkan free key, atau beli lifetime key untuk akses yang lebih nyaman.
+    </p>
+
+    <!-- GRID: Work.ink Free Key + Linkvertise + Custom Key -->
+    <div class="getkey-grid">
+      <!-- Work.ink free key -->
+      <article class="getkey-card">
+        <span class="badge badge-free big">Free Key</span>
+        <h3>Work.ink ExHub Key</h3>
+        <p>
+          Dapatkan free key melalui Work.ink. Sangat disarankan  menggunakan browser Chrome
+          agar mempermudah memperoleh key.
+        </p>
+        <ul style="margin: 10px 0 14px; padding-left: 18px; font-size: 13px; color: var(--text-muted);">
+          <li>Free Key selama 5 jam via Work.ink</li>
+          <li>Key dapat dicek statusnya di halaman ini</li>
+          <li>Tidak perlu login / data pribadi</li>
+        </ul>
+        <a
+          href="https://work.ink/23P2/yabm2hs6"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="btn-primary full"
+        >
+          Open Work.ink
+        </a>
+      </article>
+
+      <!-- Linkvertise free key -->
+      <article class="getkey-card">
+        <span class="badge badge-free big">Free Key</span>
+        <h3>Linkvertise ExHub Key</h3>
+        <p>
+          Dapatkan free key melalui Linkvertise. Sangat disarankan menggunakan browser Chrome
+          agar mempermudah memperoleh key.
+        </p>
+        <ul style="margin: 10px 0 14px; padding-left: 18px; font-size: 13px; color: var(--text-muted);">
+          <li>Free Key selama 2 jam via Linkvertise</li>
+          <li>Key dapat dicek statusnya di halaman ini</li>
+          <li>Tidak perlu login / data pribadi</li>
+        </ul>
+        <a
+          href="https://exc-webs.vercel.app/generatekey"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="btn-primary full"
+        >
+          Open Linkvertise
+        </a>
+      </article>
+
+      <!-- Custom / premium key -->
+      <article class="getkey-card getkey-premium">
+        <span class="badge badge-paid big">Lifetime Key</span>
+        <h3>Buy Lifetime Key</h3>
+        <p>
+          Ingin key tanpa iklan, masa aktif panjang untuk anda gunakan?
+          Chat via Discord kami untuk buy lifetime key.
+        </p>
+        <ul style="margin: 10px 0 14px; padding-left: 18px; font-size: 13px; color: var(--text-muted);">
+          <li>Tanpa lewat Work.ink (no ads)</li>
+          <li>Pengaturan masa aktif fleksibel</li>
+          <li>Support langsung via Discord</li>
+        </ul>
+        <a
+          href="https://discord.gg/exhubeta"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="btn-outline full"
+        >
+          Buy Key via Discord
+        </a>
+      </article>
+    </div>
+
+    <!-- CHECK KEY BOX (Work.ink + Linkvertise) -->
+    <section class="redeem-box" style="margin-top: 32px;">
+      <h3 style="margin-top:0; margin-bottom:6px;">Check Work.ink / Linkvertise Key</h3>
+      <p style="margin:0; color:var(--text-muted); font-size:13px;">
+        Paste Key Work.ink atau Linkvertise yang kamu dapat (bukan URL). Contoh:
+        <code style="font-size:12px;">7c67xx-xxx-xxxx-xxxxx-xxxxx</code>
+      </p>
+
+      <form id="check-key-form" class="redeem-form">
+        <input
+          id="check-key-input"
+          type="text"
+          name="token"
+          placeholder="Masukkan Key Work.ink / Linkvertise di sini"
+          autocomplete="off"
+        />
+        <button type="submit" class="btn-primary">Check Key</button>
+      </form>
+
+      <div id="check-key-message" style="margin-top:10px; font-size:13px;"></div>
+      <div id="check-key-meta" style="margin-top:4px; font-size:12px; color:var(--text-muted);"></div>
+    </section>
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="container footer-grid">
+    <div>
+      <div class="logo">
+        <span class="logo-icon">
+          <img src="/img/ExLogo2.png" alt="ExHub Logo" style="width:100%;height:100%;object-fit:cover;border-radius:12px;" />
+        </span>
+      </div>
+      <p class="footer-text">
+        Premium Roblox scripts dengan automation yang kuat dan kontrol penuh.
+      </p>
+      <p class="footer-copy">
+        © <%= new Date().getFullYear() %> ExHub. All rights reserved.
+      </p>
+    </div>
+    <div>
+      <h4>Product</h4>
+      <a href="/scripts">Scripts</a>
+      <a href="/get-key">Get Key</a>
+    </div>
+    <div>
+      <h4>Community</h4>
+      <a href="https://discord.gg/exhubeta" target="_blank">Discord</a>
+      <a href="https://github.com/" target="_blank">GitHub</a>
+    </div>
+    <div>
+      <h4>Legal</h4>
+      <a href="#">Terms of Service</a>
+      <a href="#">Privacy Policy</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+  (function () {
+    const form = document.getElementById('check-key-form');
+    const input = document.getElementById('check-key-input');
+    const msgEl = document.getElementById('check-key-message');
+    const metaEl = document.getElementById('check-key-meta');
+
+    function setState(text, type) {
+      msgEl.textContent = text || '';
+      // Bersihkan meta setiap ganti state; nanti diisi ulang pakai innerHTML
+      metaEl.textContent = '';
+      if (!text) return;
+
+      if (type === 'ok') {
+        msgEl.style.color = '#bbf7d0';        // hijau muda
+      } else if (type === 'error') {
+        msgEl.style.color = '#fecaca';       // merah muda
+      } else {
+        msgEl.style.color = '#e5e7eb';
+      }
+    }
+
+    // Format satu timestamp ke 2 zona waktu: WITA & WIB
+    function formatTsMultiTZ(ts) {
+      if (!ts) return '-';
+      try {
+        const d = new Date(ts);
+        if (isNaN(d.getTime())) return String(ts);
+
+        const baseOptions = {
+          dateStyle: 'short',
+          timeStyle: 'medium'
+        };
+
+        // WITA = Asia/Makassar (UTC+8)
+        const witaFormatter = new Intl.DateTimeFormat('id-ID', {
+          ...baseOptions,
+          timeZone: 'Asia/Makassar'
+        });
+
+        // WIB = Asia/Jakarta (UTC+7)
+        const wibFormatter = new Intl.DateTimeFormat('id-ID', {
+          ...baseOptions,
+          timeZone: 'Asia/Jakarta'
+        });
+
+        const witaStr = witaFormatter.format(d);
+        const wibStr = wibFormatter.format(d);
+
+        return (
+          'WITA (UTC+8): ' + witaStr +
+          '  |  WIB (UTC+7): ' + wibStr
+        );
+      } catch (e) {
+        return String(ts);
+      }
+    }
+
+    // --- Helper: cek ke Work.ink ---
+    async function checkWorkInk(token) {
+      const url = 'https://work.ink/_api/v2/token/isValid/' + encodeURIComponent(token);
+      const res = await fetch(url, { method: 'GET' });
+
+      if (!res.ok) {
+        throw new Error('Gagal HTTP Work.ink: ' + res.status);
+      }
+
+      const data = await res.json();
+
+      if (!data || typeof data.valid === 'undefined') {
+        throw new Error('Response Work.ink tidak dikenali.');
+      }
+
+      const info = data.info || {};
+      const createdAt = info.createdAt;
+      // Antisipasi jika Work.ink suatu saat pakai expiredAt
+      const expiresAfter = info.expiresAfter || info.expiredAt;
+
+      return {
+        provider: 'workink',
+        valid: !!data.valid,
+        createdAt: createdAt,
+        expiresAfter: expiresAfter
+      };
+    }
+
+    // --- Helper: cek ke Linkvertise API milikmu ---
+    async function checkLinkvertise(token) {
+      const url = 'https://exc-webs.vercel.app/api/isValidate/' + encodeURIComponent(token);
+      const res = await fetch(url, { method: 'GET' });
+
+      if (!res.ok) {
+        throw new Error('Gagal HTTP Linkvertise API: ' + res.status);
+      }
+
+      const data = await res.json();
+
+      if (!data || typeof data.valid === 'undefined') {
+        throw new Error('Response Linkvertise API tidak dikenali.');
+      }
+
+      const info = data.info || {};
+      const createdAt = info.createdAt;
+      // Antisipasi expiredAt / expiresAfter
+      const expiresAfter = info.expiresAfter || info.expiredAt;
+
+      return {
+        provider: 'linkvertise',
+        valid: !!data.valid,
+        createdAt: createdAt,
+        expiresAfter: expiresAfter
+      };
+    }
+
+    if (form) {
+      form.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        const token = (input.value || '').trim();
+
+        if (!token) {
+          setState('Token tidak boleh kosong.', 'error');
+          return;
+        }
+
+        setState('Checking key di Work.ink dan Linkvertise…', 'info');
+        metaEl.textContent = '';
+
+        try {
+          let workResult = null;
+          let linkResult = null;
+
+          // Langkah 1: Coba cek di Work.ink
+          try {
+            workResult = await checkWorkInk(token);
+          } catch (errWork) {
+            console.warn('Work.ink check failed:', errWork);
+          }
+
+          if (workResult && workResult.valid) {
+            const createdStr = formatTsMultiTZ(workResult.createdAt);
+            const expiresStr = formatTsMultiTZ(workResult.expiresAfter);
+            setState('Token VALID dan bisa digunakan (Work.ink).', 'ok');
+            metaEl.innerHTML =
+              'Provider: Work.ink' +
+              '<br>Created at: ' + createdStr +
+              '<br>Expired at: ' + expiresStr;
+            return;
+          }
+
+          // Langkah 2: Jika tidak valid di Work.ink, coba Linkvertise
+          try {
+            linkResult = await checkLinkvertise(token);
+          } catch (errLv) {
+            console.warn('Linkvertise check failed:', errLv);
+          }
+
+          if (linkResult && linkResult.valid) {
+            const createdStr = formatTsMultiTZ(linkResult.createdAt);
+            const expiresStr = formatTsMultiTZ(linkResult.expiresAfter);
+            setState('Token VALID dan bisa digunakan (Linkvertise).', 'ok');
+            metaEl.innerHTML =
+              'Provider: Linkvertise' +
+              '<br>Created at: ' + createdStr +
+              '<br>Expired at: ' + expiresStr;
+            return;
+          }
+
+          // Jika sampai di sini:
+          // - Work.ink invalid / gagal, dan
+          // - Linkvertise invalid / gagal
+          if ((workResult && workResult.valid === false) ||
+              (linkResult && linkResult.valid === false)) {
+            setState('Token TIDAK valid atau sudah kadaluarsa.', 'error');
+          } else {
+            setState('Token tidak dapat diverifikasi di Work.ink maupun Linkvertise.', 'error');
+          }
+        } catch (err) {
+          console.error(err);
+          setState('Terjadi error saat cek key.', 'error');
+        }
+      });
+    }
+  })();
+</script>
+
+<!-- Proteksi dasar: blokir klik kanan + beberapa shortcut DevTools -->
+<script src="/js/protect-devtools.js"></script>
+
+</body>
+</html>

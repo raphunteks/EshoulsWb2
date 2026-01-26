@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>ExHub — Script Library</title>
+  <link rel="icon" type="image/png" href="/img/ExLogo2.png" />
+  <link rel="stylesheet" href="/css/main.css" />
+
+  <!-- Linkvertise Full Script API: monetisasi semua external link -->
+  <script src="https://publisher.linkvertise.com/cdn/linkvertise.js"></script>
+  <script>
+    // Jika ingin mengecualikan domain tertentu dari monetisasi,
+    // ubah blacklist, contoh:
+    // linkvertise(2995260, { whitelist: [], blacklist: ["exc-webs.vercel.app", "discord.com", "discord.gg"] });
+    linkvertise(2995260, { whitelist: [], blacklist: [""] });
+  </script>
+</head>
+<body class="page-dark">
+
+<header class="site-header">
+  <div class="container header-inner">
+    <a href="/" class="logo">
+      <span class="logo-icon">
+        <img src="/img/ExLogo2.png" alt="ExHub Logo" style="width:100%;height:100%;object-fit:cover;border-radius:12px;" />
+      </span>
+      <span class="logo-text">ExHub</span>
+    </a>
+    <nav class="nav-links">
+      <a href="/" class="nav-active">Home</a>
+      <a href="/scripts">Scripts</a>
+      <!-- <a href="/get-key">Get Key Work.Ink</a> -->
+      <!-- <a href="/generatekey">Get Key Linkvertise</a> -->
+      <a href="https://discord.com/invite/VsFQq5s6" target="_blank">Discord</a>
+      <a href="/discord-login" class="nav-pill">Get Free Key</a> 
+      <!-- <a href="/admin/login" class="nav-pill">Login</a> -->
+    </nav>
+  </div>
+</header>
+
+<main class="section">
+  <div class="container">
+    <h1 class="section-title">ExHub <span class="accent-cycle">Script Library</span></h1>
+    <p class="section-subtitle">
+      Daftar script yang saat ini terdaftar di universal loader. Semua script bisa
+      kamu kelola lewat Admin Panel.
+    </p>
+
+    <div class="stats-row">
+      <div class="stat-item">
+        <span class="stat-label">Supported Games</span>
+        <span class="stat-value" id="stats-total-games">
+          <%= stats.totalGames %>
+        </span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">Total Executions</span>
+        <span class="stat-value" id="stats-total-executions">
+          <%= stats.totalExecutions %>
+        </span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">Unique Users</span>
+        <span class="stat-value" id="stats-total-users">
+          <%= stats.totalUsers %>
+        </span>
+      </div>
+    </div>
+
+    <div class="scripts-grid">
+      <% if (scripts.length === 0) { %>
+        <p>Belum ada script yang terdaftar di ExHub.</p>
+      <% } %>
+
+      <% scripts.forEach(function(script) { %>
+        <article class="script-card" data-script-id="<%= script.id %>">
+          <% if (script.thumbnail) { %>
+            <div class="script-thumb" style="background-image:url('<%= script.thumbnail %>')"></div>
+          <% } %>
+          <div class="script-body">
+            <div class="script-top">
+              <h3><%= script.name %></h3>
+              <span class="badge version"><%= script.version %></span>
+            </div>
+            <p class="script-game"><%= script.gameName %></p>
+            <p class="script-desc"><%= script.shortDescription || 'Script terintegrasi ExHub loader.' %></p>
+
+            <div class="script-meta">
+              <span class="badge <%= script.isFree ? 'badge-free' : 'badge-paid' %>">
+                <%= script.isFree ? 'Free' : 'Premium' %>
+              </span>
+              <span class="badge status-<%= script.status %>">
+                <%= script.status === 'working' ? 'Stable' : script.status %>
+              </span>
+            </div>
+
+            <div class="script-stats-row">
+              <div>
+                <span class="stat-label">Uses</span>
+                <span class="stat-value script-uses"><%= script.uses || 0 %></span>
+              </div>
+              <div>
+                <span class="stat-label">Users</span>
+                <span class="stat-value script-users"><%= script.users || 0 %></span>
+              </div>
+            </div>
+
+            <div class="script-actions">
+              <button
+                class="btn-primary btn-small copy-loader-btn"
+                type="button"
+                data-script-id="<%= script.id %>"
+              >
+                Copy Loader
+              </button>
+
+              <a
+                href="https://discord.com/invite/VsFQq5s6"
+                target="_blank"
+                class="btn-ghost btn-small"
+              >
+                Discord
+              </a>
+            </div>
+          </div>
+        </article>
+      <% }) %>
+    </div>
+
+    <section class="section section-muted">
+      <h2 class="section-title small">Game belum ada di list?</h2>
+      <p class="section-subtitle">
+        Kirim request game anda via Discord.
+      </p>
+      <a href="https://discord.com/invite/VsFQq5s6" target="_blank" class="btn-primary">
+        Request game di Discord
+      </a>
+    </section>
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="container footer-grid">
+    <div>
+      <div class="logo">
+        <span class="logo-icon">
+          <img src="/img/ExLogo2.png" alt="ExHub Logo" style="width:100%;height:100%;object-fit:cover;border-radius:12px;" />
+        </span>
+        <span class="logo-text">ExHub</span>
+      </div>
+      <p class="footer-copy">© <%= new Date().getFullYear() %> ExHub.</p>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // Helper: ambil base URL (origin) dengan fallback ke domain default
+  function getLoaderBaseUrl() {
+    try {
+      var origin = (window && window.location && window.location.origin) ? window.location.origin : '';
+      if (!origin || origin.indexOf('http') !== 0) {
+        origin = 'https://exc-webs.vercel.app';
+      }
+      // pastikan tanpa slash di akhir
+      origin = origin.replace(/\/+$/, '');
+      return origin;
+    } catch (e) {
+      return 'https://exc-webs.vercel.app';
+    }
+  }
+
+  // Copy loader button
+  (function () {
+    const buttons = document.querySelectorAll('.copy-loader-btn');
+
+    function setStatus(btn, text) {
+      const original = btn.dataset.originalText || 'Copy Loader';
+      if (!btn.dataset.originalText) {
+        btn.dataset.originalText = original;
+      }
+      btn.textContent = text;
+      btn.disabled = true;
+      setTimeout(function () {
+        btn.textContent = btn.dataset.originalText;
+        btn.disabled = false;
+      }, 1500);
+    }
+
+    function fallbackCopy(text, btn) {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.style.position = 'fixed';
+      textarea.style.left = '-9999px';
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+      try {
+        document.execCommand('copy');
+        setStatus(btn, 'Copied!');
+      } catch (err) {
+        console.error('Copy failed', err);
+        setStatus(btn, 'Copy failed');
+      }
+      document.body.removeChild(textarea);
+    }
+
+    buttons.forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        const scriptId = btn.getAttribute('data-script-id');
+        if (!scriptId) return;
+
+        const baseUrl = getLoaderBaseUrl();
+        const loader = 'loadstring(game:HttpGet("' + baseUrl + '/api/script/' + scriptId + '", true))()';
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard
+            .writeText(loader)
+            .then(function () {
+              setStatus(btn, 'Copied!');
+            })
+            .catch(function () {
+              fallbackCopy(loader, btn);
+            });
+        } else {
+          fallbackCopy(loader, btn);
+        }
+      });
+    });
+  })();
+
+  // Live update uses/users + stats
+  (function () {
+    const totalGamesEl = document.getElementById('stats-total-games');
+    const totalExecEl = document.getElementById('stats-total-executions');
+    const totalUsersEl = document.getElementById('stats-total-users');
+
+    async function refreshStats() {
+      try {
+        const res = await fetch('/api/stats');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!data || !data.stats) return;
+
+        if (totalGamesEl) totalGamesEl.textContent = data.stats.totalGames ?? 0;
+        if (totalExecEl) totalExecEl.textContent = data.stats.totalExecutions ?? 0;
+        if (totalUsersEl) totalUsersEl.textContent = data.stats.totalUsers ?? 0;
+
+        if (Array.isArray(data.scripts)) {
+          data.scripts.forEach(function (s) {
+            const card = document.querySelector(
+              '.script-card[data-script-id="' + s.id + '"]'
+            );
+            if (!card) return;
+            const usesEl = card.querySelector('.script-uses');
+            const usersEl = card.querySelector('.script-users');
+            if (usesEl) usesEl.textContent = s.uses ?? 0;
+            if (usersEl) usersEl.textContent = s.users ?? 0;
+          });
+        }
+      } catch (err) {
+        console.error('Failed to refresh stats', err);
+      }
+    }
+
+    refreshStats();
+    setInterval(refreshStats, 15000);
+  })();
+</script>
+
+<!-- Proteksi dasar: blokir klik kanan + beberapa shortcut DevTools -->
+<script src="/js/protect-devtools.js"></script>
+
+</body>
+</html>

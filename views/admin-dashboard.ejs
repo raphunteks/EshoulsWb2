@@ -1,0 +1,1931 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>ExHub — Admin Dashboard</title>
+  <link rel="icon" type="image/png" href="/img/ExLogo2.png" />
+  <link rel="stylesheet" href="/css/main.css" />
+
+  <!-- Admin Dashboard: Responsive Layout & UX Upgrade (mobile + desktop) -->
+  <style>
+    /* ===========================
+       GLOBAL LAYOUT (NO H-SCROLL)
+       =========================== */
+    html,
+    body {
+      width: 100%;
+      max-width: 100%;
+      overflow-x: hidden;      /* tidak boleh ada horizontal scroll di halaman */
+      margin: 0;
+      padding: 0;
+    }
+
+    body.page-dark {
+      max-width: 100%;
+      overflow-x: hidden;
+    }
+
+    /* Container utama admin */
+    .container.admin-dashboard {
+      width: 100%;
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 0 16px 32px;
+      box-sizing: border-box;
+    }
+
+    /* Root layout */
+    .admin-dashboard {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      padding-bottom: 0;
+    }
+
+    /* Section spacing */
+    .admin-section {
+      margin-top: 24px;
+    }
+
+    /* Top nav tabs (anchor ke section) */
+    .admin-nav-tabs {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 8px 0 20px;
+      padding-bottom: 4px;
+      overflow-x: auto; /* scroll H hanya di dalam nav, bukan halaman */
+      scrollbar-width: thin;
+      border-bottom: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+    }
+
+    .admin-nav-tab {
+      flex-shrink: 0;
+      text-decoration: none;
+      font-size: 0.8rem;
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.15));
+      background: rgba(9, 12, 20, 0.9);
+      color: var(--text-muted, #9ca3c0);
+    }
+
+    .admin-nav-tab:hover {
+      border-color: var(--accent, #7bff3a);
+      color: var(--text-main, #f5f7ff);
+    }
+
+    .admin-nav-tab:focus-visible {
+      outline: 2px solid var(--accent, #7bff3a);
+      outline-offset: 2px;
+    }
+
+    /* Main two-column layout (activity + side stats) */
+    .dashboard-main {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .dashboard-side {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* Generic grid/stack untuk form di admin */
+    .admin-dashboard .row-cols {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    /* Quick Search bar */
+    .admin-search .search-row {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .admin-search .search-form {
+      width: 100%;
+    }
+
+    /* ===========================
+       TABLE LAYOUT: V-SCROLL ONLY
+       =========================== */
+
+    .table-wrapper {
+      width: 100%;
+      max-width: 100%;
+      overflow-x: visible;          /* tidak scroll horizontal di table wrapper */
+    }
+
+    .table.table-compact {
+      width: 100%;
+      table-layout: fixed;          /* kolom dipaksa rata agar muat layar */
+      border-collapse: collapse;
+    }
+
+    .table.table-compact th,
+    .table.table-compact td {
+      padding: 6px 8px;
+      white-space: normal;          /* IZINKAN WRAP */
+      word-wrap: break-word;
+      overflow-wrap: anywhere;      /* pecah kata panjang (HWID, key, dsb) */
+      vertical-align: top;
+    }
+
+    /* pastikan teks monospace panjang juga ikut wrap */
+    .mono {
+      word-wrap: break-word;
+      overflow-wrap: anywhere;
+    }
+
+    .hwid-cell {
+      max-width: 180px;
+    }
+
+    /* Script / raw file cards */
+    .admin-table {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .admin-script-row {
+      border-radius: var(--radius-lg, 18px);
+    }
+
+    .admin-script-row .row-main {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .row-header {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .row-title {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .row-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .row-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
+
+    .row-actions-note {
+      color: var(--text-muted, #9ca3c0);
+    }
+
+    /* UserSearch result card (Roblox lookup) */
+    .user-result-card {
+      margin-top: 16px;
+      border-radius: var(--radius-md, 12px);
+      border: 1px solid var(--border-subtle, rgba(255,255,255,0.06));
+      padding: 12px;
+      background: rgba(9, 12, 20, 0.9);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .user-result-main {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .user-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 999px;
+      overflow: hidden;
+      flex-shrink: 0;
+      background: #020617;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .user-avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .user-avatar-placeholder {
+      font-size: 0.7rem;
+      color: var(--text-muted, #9ca3c0);
+    }
+
+    .user-result-name {
+      font-size: 0.95rem;
+    }
+
+    .user-result-username {
+      font-size: 0.8rem;
+      color: var(--text-muted, #9ca3c0);
+    }
+
+    .user-result-meta {
+      font-size: 0.75rem;
+      color: var(--text-muted, #9ca3c0);
+    }
+
+    .user-result-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .chip-soft {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 4px 10px;
+      background: rgba(148, 163, 184, 0.12);
+      color: var(--text-muted, #9ca3c0);
+      font-size: 0.75rem;
+      max-width: 100%;
+      overflow-wrap: anywhere;
+    }
+
+    /* chip umum dari main.css – paksa wrap juga */
+    .chip,
+    .chip-copy {
+      max-width: 100%;
+      overflow-wrap: anywhere;
+    }
+
+    /* Field hint (ID, scriptFile, dll) */
+    .field-hint {
+      display: block;
+      margin-top: 4px;
+      font-size: 0.75rem;
+      color: var(--text-muted, #9ca3c0);
+      line-height: 1.35;
+    }
+
+    .field-hint code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+        "Liberation Mono", "Courier New", monospace;
+      font-size: 0.75rem;
+    }
+
+    /* Raw link row (Private Raw Files) */
+    .raw-link-row {
+      margin-top: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .raw-link-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted, #9ca3c0);
+    }
+
+    .raw-link-main {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      max-width: 100%;
+    }
+
+    .raw-link-url {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+        "Liberation Mono", "Courier New", monospace;
+      font-size: 0.8rem;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border-subtle, rgba(255,255,255,0.06));
+      background: rgba(15, 23, 42, 0.9);
+      color: var(--accent-alt, #3cffd0);
+      text-decoration: none;
+      overflow-wrap: anywhere;
+      max-width: 100%;
+    }
+
+    .raw-link-url:hover {
+      border-color: var(--accent, #7bff3a);
+    }
+
+    /* Map history chips (allMapList) */
+    .map-history {
+      margin-top: 4px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+
+    .map-history-item {
+      font-size: 0.7rem;
+      border-radius: 999px;
+      padding: 2px 8px;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid var(--border-subtle, rgba(255,255,255,0.08));
+      color: var(--text-muted, #9ca3c0);
+      max-width: 100%;
+      text-overflow: ellipsis;
+      overflow: hidden;
+      white-space: nowrap;
+    }
+
+    /* Header actions (Monitor Keys + Monitor Discord + Logout) */
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* SCRIPT PREVIEW AREA */
+    .script-preview {
+      margin-top: 6px;
+      padding-top: 6px;
+      border-top: 1px dashed var(--border-subtle, rgba(255,255,255,0.12));
+    }
+
+    .script-preview-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 4px;
+      flex-wrap: wrap;
+    }
+
+    .script-preview-title {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted, #9ca3c0);
+    }
+
+    .script-preview-tools {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .script-preview-loader-snippet {
+      margin-top: 4px;
+    }
+
+    .script-preview-loader-snippet code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+        "Liberation Mono", "Courier New", monospace;
+      font-size: 0.78rem;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid var(--border-subtle, rgba(255,255,255,0.08));
+      display: inline-block;
+      max-width: 100%;
+      overflow-wrap: anywhere;
+    }
+
+    .script-preview-body {
+      margin-top: 6px;
+      border-radius: var(--radius-md, 12px);
+      border: 1px solid var(--border-subtle, rgba(255,255,255,0.08));
+      background: rgba(15, 23, 42, 0.96);
+      padding: 8px;
+      max-height: 260px;
+      overflow: auto;
+      font-size: 0.8rem;
+    }
+
+    .script-preview-body pre {
+      margin: 0;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      overflow-wrap: anywhere;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+        "Liberation Mono", "Courier New", monospace;
+    }
+
+    .script-preview-body.is-collapsed {
+      display: none;
+    }
+
+    .script-preview-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 4px;
+    }
+
+    .script-preview-links a {
+      font-size: 0.78rem;
+    }
+
+    /* Breakpoints */
+    @media (min-width: 640px) {
+      .admin-search .search-row {
+        flex-direction: row;
+        flex-wrap: wrap;
+      }
+      .admin-search .search-form {
+        flex: 1 1 220px;
+      }
+    }
+
+    @media (min-width: 768px) {
+      .admin-dashboard .row-cols {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px 16px;
+      }
+      .admin-dashboard .keycheck-form .row-cols {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .admin-dashboard .add-form .row-cols {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (min-width: 1024px) {
+      .dashboard-main {
+        flex-direction: row;
+        align-items: flex-start;
+      }
+      .card-main {
+        flex: 2;
+      }
+      .dashboard-side {
+        flex: 1;
+        position: sticky;
+        top: 88px;
+      }
+      .admin-dashboard .row-main {
+        flex-direction: column;
+      }
+      .admin-nav-tabs {
+        justify-content: flex-end;
+      }
+    }
+
+    /* MOBILE: perketat lagi agar aman di layar kecil */
+    @media (max-width: 767.98px) {
+      .table.table-compact th,
+      .table.table-compact td {
+        padding: 6px 6px;
+        font-size: 0.78rem;
+      }
+
+      .map-history-item {
+        white-space: normal;
+      }
+    }
+  </style>
+</head>
+<body class="page-dark">
+
+<header class="site-header">
+  <div class="container header-inner">
+    <div class="logo">
+      <span class="logo-icon">
+        <img src="/img/ExLogo2.png" alt="ExHub" class="logo-img" />
+      </span>
+      <span class="logo-text" id="logo-text">ExHub — Admin Dashboard</span>
+    </div>
+
+    <!-- ACTIONS: Monitor Keys + Monitor Discord + Logout -->
+    <div class="header-actions">
+      <a href="/admin/keys" class="btn-ghost btn-small">Monitor Keys</a>
+      <a href="/admin/discord" class="btn-ghost btn-small">Monitor Discord</a>
+      <form method="post" action="/admin/logout" class="header-action">
+        <button class="btn-ghost btn-small" type="submit">Logout</button>
+      </form>
+    </div>
+  </div>
+</header>
+
+<main class="section">
+  <div class="container admin-dashboard">
+
+    <!-- HEADER + FILTER -->
+    <section class="dashboard-header" id="overview">
+      <div class="dashboard-header-main">
+        <h1 class="section-title small">Dashboard</h1>
+        <p class="section-subtitle">
+          Monitor semua eksekusi script ExHub: users, HWID, executor, key, dan performa script.
+        </p>
+      </div>
+
+      <form method="get" action="/admin" class="dashboard-filter">
+        <label>
+          Periode
+          <select name="period">
+            <option value="24h" <%= stats.period === '24h' ? 'selected' : '' %>>24 jam</option>
+            <option value="7d"  <%= stats.period === '7d'  ? 'selected' : '' %>>7 hari</option>
+            <option value="30d" <%= stats.period === '30d' ? 'selected' : '' %>>30 hari</option>
+            <option value="all" <%= (!stats.period || stats.period === 'all') ? 'selected' : '' %>>Semua</option>
+          </select>
+        </label>
+        <button class="btn-ghost btn-small" type="submit">Apply</button>
+      </form>
+    </section>
+
+    <!-- NAV TABS (ANCHOR KE SECTION) -->
+    <nav class="admin-nav-tabs" aria-label="Dashboard sections">
+      <a href="#overview" class="admin-nav-tab">Overview</a>
+      <a href="#search" class="admin-nav-tab">Search</a>
+      <a href="#key-check" class="admin-nav-tab">Key Checker</a>
+      <a href="#activity" class="admin-nav-tab">Activity</a>
+      <a href="#stats-lists" class="admin-nav-tab">Top Stats</a>
+      <a href="#loader-users" class="admin-nav-tab">Loader Users</a>
+      <a href="#scripts-section" class="admin-nav-tab">Scripts</a>
+      <a href="#raw-files" class="admin-nav-tab">Raw Files</a>
+    </nav>
+
+    <!-- TOP OVERVIEW STATS -->
+    <section class="dashboard-overview card-grid" id="overview-cards">
+      <article class="stat-card">
+        <div class="stat-card-label">Supported Games</div>
+        <div class="stat-card-value"><%= stats.totalGames || 0 %></div>
+        <div class="stat-card-meta">Total game yang di-link ke ExHub</div>
+      </article>
+
+      <article class="stat-card">
+        <div class="stat-card-label">Scripts</div>
+        <div class="stat-card-value"><%= stats.totalScripts || scripts.length || 0 %></div>
+        <div class="stat-card-meta">Jumlah script terdaftar</div>
+      </article>
+
+      <article class="stat-card">
+        <div class="stat-card-label">Total Executions</div>
+        <div class="stat-card-value"><%= stats.totalExecutions || 0 %></div>
+        <div class="stat-card-meta">Semua waktu</div>
+      </article>
+
+      <article class="stat-card">
+        <div class="stat-card-label">Executions (24h)</div>
+        <div class="stat-card-value"><%= stats.executions24h || 0 %></div>
+        <div class="stat-card-meta">Aktivitas 24 jam terakhir</div>
+      </article>
+
+      <article class="stat-card">
+        <div class="stat-card-label">Users</div>
+        <div class="stat-card-value"><%= stats.totalUsers || 0 %></div>
+        <div class="stat-card-meta">User unik (userId)</div>
+      </article>
+
+      <article class="stat-card">
+        <div class="stat-card-label">Active Users (24h)</div>
+        <div class="stat-card-value"><%= stats.activeUsers24h || 0 %></div>
+        <div class="stat-card-meta">User eksekusi hari ini</div>
+      </article>
+
+      <article class="stat-card">
+        <div class="stat-card-label">Unique HWID</div>
+        <div class="stat-card-value"><%= stats.uniqueHwids || 0 %></div>
+        <div class="stat-card-meta">Device unik terdeteksi</div>
+      </article>
+
+      <article class="stat-card">
+        <div class="stat-card-label">Avg Exec / User</div>
+        <div class="stat-card-value"><%= stats.avgExecPerUser || 0 %></div>
+        <div class="stat-card-meta">Rata-rata lifetime</div>
+      </article>
+
+      <article class="stat-card">
+        <div class="stat-card-label">Avg Exec / HWID</div>
+        <div class="stat-card-value"><%= stats.avgExecPerHwid || 0 %></div>
+        <div class="stat-card-meta">Rata-rata lifetime</div>
+      </article>
+    </section>
+
+    <!-- QUICK SEARCH AREA -->
+    <section class="card admin-search" id="search">
+      <header class="card-header">
+        <h2 class="admin-subtitle">Quick Search</h2>
+        <p class="card-description">
+          Cari user, HWID, atau key tertentu untuk investigasi cepat.
+        </p>
+      </header>
+
+      <div class="search-row">
+        <form method="get" action="/admin/search/user" class="search-form">
+          <label>
+            Username / UserId
+            <input type="text" name="q" placeholder="misal: 12345678 atau ExPlayer" />
+          </label>
+          <button class="btn-outline btn-small" type="submit">Search User</button>
+        </form>
+
+        <form method="get" action="/admin/search/hwid" class="search-form">
+          <label>
+            HWID
+            <input type="text" name="q" placeholder="awal HWID / full HWID" />
+          </label>
+          <button class="btn-outline btn-small" type="submit">Search HWID</button>
+        </form>
+
+        <form method="get" action="/admin/key-check" class="search-form">
+          <label>
+            Key / Username
+            <input type="text" name="q" placeholder="token key / username / userId" />
+          </label>
+          <button class="btn-outline btn-small" type="submit">Key Check</button>
+        </form>
+      </div>
+
+      <!-- HASIL /admin/search/user (Roblox lookup) -->
+      <% if (typeof userSearch !== 'undefined' && userSearch && (userSearch.result || userSearch.error)) { %>
+        <div class="search-result">
+          <% if (userSearch.error) { %>
+            <p class="empty-state small" style="margin-top: 10px;">
+              <%= userSearch.error %>
+            </p>
+          <% } %>
+
+          <% if (userSearch.result) {
+               var u = userSearch.result; %>
+            <div class="user-result-card">
+              <div class="user-result-main">
+                <div class="user-avatar">
+                  <% if (u.avatarUrl) { %>
+                    <img src="<%= u.avatarUrl %>" alt="<%= u.username || 'Roblox User' %>" />
+                  <% } else { %>
+                    <div class="user-avatar-placeholder">RBX</div>
+                  <% } %>
+                </div>
+                <div>
+                  <div class="user-result-name">
+                    <strong><%= u.displayName || u.username || '-' %></strong>
+                  </div>
+                  <div class="user-result-username">
+                    @<%= u.username || '-' %> · ID: <%= u.id || '-' %>
+                  </div>
+                  <% if (u.created) { %>
+                    <div class="user-result-meta">
+                      Joined: <%= u.created %>
+                    </div>
+                  <% } %>
+                </div>
+              </div>
+              <div class="user-result-footer">
+                <% if (u.profileUrl) { %>
+                  <a href="<%= u.profileUrl %>"
+                     class="btn-ghost btn-small"
+                     target="_blank"
+                     rel="noopener noreferrer">
+                    Open Roblox Profile
+                  </a>
+                <% } %>
+                <% if (userSearch.query) { %>
+                  <span class="chip-soft">
+                    Query: <%= userSearch.query %>
+                  </span>
+                <% } %>
+              </div>
+            </div>
+          <% } %>
+        </div>
+      <% } %>
+    </section>
+
+    <!-- KEY CHECKER CARD -->
+    <section class="card admin-keycheck" id="key-check">
+      <header class="card-header">
+        <div>
+          <h2 class="admin-subtitle">Key Checker (Work.ink / Username)</h2>
+          <p class="card-description">
+            Cek apakah sebuah key atau player (username / userId) pernah menggunakan ExHub Loader.
+          </p>
+        </div>
+      </header>
+
+      <form method="get" action="/admin/key-check" class="admin-form keycheck-form">
+        <div class="row-cols">
+          <label>
+            Key / Username / UserId
+            <input type="text"
+                   name="q"
+                   value="<%= (keyCheck && keyCheck.query) ? keyCheck.query : '' %>"
+                   placeholder="contoh: EXHUB-ABC-123-XYZ atau SomeUser atau 123456789" />
+          </label>
+          <label>
+            Periode
+            <select name="period">
+              <option value="all" <%= (!keyCheck || keyCheck.period === 'all') ? 'selected' : '' %>>Semua</option>
+              <option value="24h" <%= keyCheck && keyCheck.period === '24h' ? 'selected' : '' %>>24 jam</option>
+              <option value="7d"  <%= keyCheck && keyCheck.period === '7d'  ? 'selected' : '' %>>7 hari</option>
+              <option value="30d" <%= keyCheck && keyCheck.period === '30d' ? 'selected' : '' %>>30 hari</option>
+            </select>
+          </label>
+        </div>
+        <button class="btn-primary btn-small" type="submit">Run Key Check</button>
+      </form>
+
+      <div class="table-wrapper" style="margin-top: 14px;">
+        <% if (keyCheck && keyCheck.query && keyCheck.total > 0) { %>
+          <p class="card-description">
+            Hasil untuk query:
+            <strong><%= keyCheck.query %></strong>
+            — ditemukan <strong><%= keyCheck.total %></strong> kombinasi player/script.
+          </p>
+
+          <% var keyMatches = keyCheck.matches || []; %>
+          <table class="table table-compact">
+            <thead>
+              <tr>
+                <th>Script</th>
+                <th>User</th>
+                <th>UserId</th>
+                <th>HWID</th>
+                <th>Key</th>
+                <th>Exec</th>
+                <th>Maps</th>
+                <th>Last Exec</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% keyMatches.forEach(function(item) { %>
+                <tr>
+                  <td>
+                    <div class="table-main-text"><%= item.scriptName || item.scriptId || '-' %></div>
+                    <div class="table-sub-text"><%= item.scriptId || '' %></div>
+                  </td>
+                  <td>
+                    <div class="table-main-text">
+                      <%= item.displayName || item.username || '-' %>
+                    </div>
+                    <div class="table-sub-text">
+                      @<%= item.username || '-' %>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="table-main-text">
+                      <%= item.userId || '-' %>
+                    </div>
+                    <% if (item.userId) { %>
+                      <button type="button"
+                              class="chip chip-copy"
+                              data-copy="<%= item.userId %>">
+                        copy
+                      </button>
+                    <% } %>
+                  </td>
+                  <td>
+                    <div class="table-main-text hwid-cell">
+                      <% if (item.hwid) { %>
+                        <span class="mono">
+                          <%= item.hwid.length > 12
+                                ? (item.hwid.substring(0,6) + '…' + item.hwid.slice(-4))
+                                : item.hwid %>
+                        </span>
+                      <% } else { %>
+                        -
+                      <% } %>
+                    </div>
+                    <% if (item.hwid) { %>
+                      <button type="button"
+                              class="chip chip-copy"
+                              data-copy="<%= item.hwid %>">
+                        copy
+                      </button>
+                    <% } %>
+                  </td>
+                  <td>
+                    <% if (item.keyToken) { %>
+                      <div class="table-main-text mono">
+                        <%= item.keyToken.length > 12
+                              ? (item.keyToken.substring(0,4) + '…' + item.keyToken.slice(-4))
+                              : item.keyToken %>
+                      </div>
+                      <button type="button"
+                              class="chip chip-copy"
+                              data-copy="<%= item.keyToken %>">
+                        copy
+                      </button>
+                      <div class="table-sub-text">
+                        <% if (item.keyCreatedAt) { %>
+                          Created: <%= item.keyCreatedAt %>
+                        <% } %>
+                        <% if (item.keyExpiresAt) { %>
+                          · Expires: <%= item.keyExpiresAt %>
+                        <% } %>
+                      </div>
+                    <% } else { %>
+                      -
+                    <% } %>
+                  </td>
+                  <td>
+                    <div class="table-main-text">
+                      <%= item.totalExecutes || 0 %>
+                    </div>
+                  </td>
+                  <td>
+                    <%
+                      var mapsKC = Array.isArray(item.allMapList) ? item.allMapList : [];
+                      if (mapsKC.length) {
+                    %>
+                      <div class="map-history">
+                        <% mapsKC.slice(0, 3).forEach(function(m) {
+                             var label = m.mapName || (m.placeId ? ('Place ' + m.placeId) : (m.serverId || 'Unknown'));
+                        %>
+                          <span class="map-history-item"><%= label %></span>
+                        <% }); %>
+                        <% if (mapsKC.length > 3) { %>
+                          <span class="map-history-item">+<%= mapsKC.length - 3 %> more</span>
+                        <% } %>
+                      </div>
+                    <% } else { %>
+                      <div class="table-main-text">-</div>
+                    <% } %>
+                  </td>
+                  <td>
+                    <div class="table-main-text">
+                      <%= item.lastExecuteAt || '-' %>
+                    </div>
+                  </td>
+                  <td>
+                    <form method="post"
+                          action="/admin/exec-users/delete"
+                          onsubmit="return confirm('Yakin hapus data tracking player ini?');">
+                      <input type="hidden" name="entryKey" value="<%= item.key %>" />
+                      <button type="submit" class="btn-ghost btn-small">
+                        Delete
+                      </button>
+                    </form>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        <% } else if (keyCheck && keyCheck.query && keyCheck.total === 0) { %>
+          <p class="empty-state small">
+            Tidak ditemukan player yang cocok untuk "<strong><%= keyCheck.query %></strong>".
+          </p>
+        <% } else { %>
+          <p class="empty-state small">
+            Masukkan key atau username untuk melakukan pengecekan.
+          </p>
+        <% } %>
+      </div>
+    </section>
+
+    <!-- MAIN LAYOUT: LEFT = ACTIVITY, RIGHT = TOP LISTS -->
+    <div class="dashboard-main" id="activity">
+
+      <!-- LEFT: LATEST EXECUTIONS -->
+      <section class="card card-main">
+        <header class="card-header">
+          <div class="card-header-main">
+            <h2 class="admin-subtitle">Latest Executions</h2>
+            <p class="card-description">
+              Riwayat eksekusi terakhir termasuk script, user, HWID, executor, key, dan informasi server.
+            </p>
+          </div>
+          <span class="card-badge">
+            Menampilkan
+            <strong><%= (stats.recentExecutions && stats.recentExecutions.length) || 0 %></strong>
+            eksekusi terbaru
+          </span>
+        </header>
+
+        <div class="table-wrapper">
+          <% if (stats.recentExecutions && stats.recentExecutions.length) { %>
+            <table class="table table-compact">
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Script</th>
+                  <th>User</th>
+                  <th>UserId</th>
+                  <th>HWID</th>
+                  <th>Executor</th>
+                  <th>Key</th>
+                  <th>Exec #</th>
+                  <th>Game / Place</th>
+                  <th>Server</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% stats.recentExecutions.forEach(function(exec) { %>
+                  <tr>
+                    <td>
+                      <div class="table-main-text">
+                        <%= exec.timeAgo || exec.executedAtHuman || '-' %>
+                      </div>
+                      <div class="table-sub-text">
+                        <%= exec.executedAtIso || exec.executedAt || '' %>
+                      </div>
+                    </td>
+                    <td>
+                      <div class="table-main-text">
+                        <%= exec.scriptName || exec.scriptId || '-' %>
+                      </div>
+                      <div class="table-sub-text"><%= exec.scriptId || '' %></div>
+                    </td>
+                    <td>
+                      <div class="table-main-text">
+                        <%= exec.displayName || exec.username || '-' %>
+                      </div>
+                      <div class="table-sub-text">
+                        @<%= exec.username || '-' %>
+                      </div>
+                    </td>
+                    <td>
+                      <div class="table-main-text">
+                        <%= exec.userId || '-' %>
+                      </div>
+                      <% if (exec.userId) { %>
+                        <button type="button"
+                                class="chip chip-copy"
+                                data-copy="<%= exec.userId %>">
+                          copy
+                        </button>
+                      <% } %>
+                    </td>
+                    <td>
+                      <div class="table-main-text hwid-cell">
+                        <% if (exec.hwid) { %>
+                          <span class="mono">
+                            <%= exec.hwid.length > 12
+                                  ? (exec.hwid.substring(0,6) + '…' + exec.hwid.slice(-4))
+                                  : exec.hwid %>
+                          </span>
+                        <% } else { %>
+                          -
+                        <% } %>
+                      </div>
+                      <% if (exec.hwid) { %>
+                        <button type="button"
+                                class="chip chip-copy"
+                                data-copy="<%= exec.hwid %>">
+                          copy
+                        </button>
+                      <% } %>
+                    </td>
+                    <td>
+                      <div class="table-main-text">
+                        <%= exec.executorUse || exec.executor || '-' %>
+                      </div>
+                    </td>
+                    <td>
+                      <% if (exec.key) { %>
+                        <div class="table-main-text mono">
+                          <%= exec.key.length > 12
+                                ? (exec.key.substring(0,4) + '…' + exec.key.slice(-4))
+                                : exec.key %>
+                        </div>
+                        <button type="button"
+                                class="chip chip-copy"
+                                data-copy="<%= exec.key %>">
+                          copy
+                        </button>
+                      <% } else { %>
+                        -
+                      <% } %>
+                    </td>
+                    <td>
+                      <div class="table-main-text">
+                        <%= exec.executeCount || exec.execIndex || 1 %>
+                      </div>
+                      <div class="table-sub-text">device counter</div>
+                    </td>
+                    <td>
+                      <div class="table-main-text">
+                        <%= exec.mapName || '-' %>
+                      </div>
+                      <div class="table-sub-text">
+                        PlaceId: <%= exec.placeId || '-' %>
+                      </div>
+                      <%
+                        var mapsExec = Array.isArray(exec.allMapList) ? exec.allMapList : [];
+                        if (mapsExec.length) {
+                      %>
+                        <div class="map-history">
+                          <% mapsExec.slice(0, 3).forEach(function(m) {
+                               var label = m.mapName || (m.placeId ? ('Place ' + m.placeId) : (m.serverId || 'Unknown'));
+                          %>
+                            <span class="map-history-item"><%= label %></span>
+                          <% }); %>
+                          <% if (mapsExec.length > 3) { %>
+                            <span class="map-history-item">+<%= mapsExec.length - 3 %> more</span>
+                          <% } %>
+                        </div>
+                      <% } %>
+                    </td>
+                    <td>
+                      <div class="table-main-text">
+                        <%= exec.serverId && exec.serverId.length > 10
+                              ? exec.serverId.substring(0,10) + '…'
+                              : (exec.serverId || '-') %>
+                      </div>
+                      <% if (exec.serverId) { %>
+                        <button type="button"
+                                class="chip chip-copy"
+                                data-copy="<%= exec.serverId %>">
+                          copy
+                        </button>
+                      <% } %>
+                    </td>
+                  </tr>
+                <% }) %>
+              </tbody>
+            </table>
+          <% } else { %>
+            <p class="empty-state">
+              Belum ada data eksekusi terbaru untuk periode ini.
+            </p>
+          <% } %>
+        </div>
+      </section>
+
+      <!-- RIGHT: TOP LISTS -->
+      <aside class="dashboard-side" id="stats-lists">
+
+        <!-- TOP SCRIPTS -->
+        <section class="card">
+          <header class="card-header">
+            <h3 class="admin-subtitle">Top Scripts</h3>
+            <p class="card-description">Script dengan eksekusi terbanyak.</p>
+          </header>
+
+          <% if (stats.topScripts && stats.topScripts.length) { %>
+            <ul class="list-ranking">
+              <% stats.topScripts.forEach(function(item, idx) { %>
+                <li class="list-ranking-item">
+                  <span class="rank"><%= idx + 1 %></span>
+                  <div class="rank-main">
+                    <div class="rank-title">
+                      <%= item.name || item.scriptName || item.id %>
+                    </div>
+                    <div class="rank-sub">
+                      <span class="badge-soft">ID: <%= item.id %></span>
+                      <% if (item.gameName) { %>
+                        <span class="badge-soft">Game: <%= item.gameName %></span>
+                      <% } %>
+                    </div>
+                  </div>
+                  <div class="rank-metric">
+                    <span class="rank-value"><%= item.executions || item.uses || 0 %></span>
+                    <span class="rank-label">exec</span>
+                  </div>
+                </li>
+              <% }) %>
+            </ul>
+          <% } else { %>
+            <p class="empty-state small">Belum ada ranking script.</p>
+          <% } %>
+        </section>
+
+        <!-- TOP USERS -->
+        <section class="card">
+          <header class="card-header">
+            <h3 class="admin-subtitle">Top Users</h3>
+            <p class="card-description">User dengan jumlah eksekusi terbanyak.</p>
+          </header>
+
+          <% if (stats.topUsers && stats.topUsers.length) { %>
+            <ul class="list-ranking">
+              <% stats.topUsers.forEach(function(item, idx) { %>
+                <li class="list-ranking-item">
+                  <span class="rank"><%= idx + 1 %></span>
+                  <div class="rank-main">
+                    <div class="rank-title">
+                      <%= item.displayName || item.username || '-' %>
+                    </div>
+                    <div class="rank-sub">
+                      @<%= item.username || '-' %> · ID: <%= item.userId || '-' %>
+                    </div>
+                  </div>
+                  <div class="rank-metric">
+                    <span class="rank-value"><%= item.executions || 0 %></span>
+                    <span class="rank-label">exec</span>
+                  </div>
+                </li>
+              <% }) %>
+            </ul>
+          <% } else { %>
+            <p class="empty-state small">Belum ada ranking user.</p>
+          <% } %>
+        </section>
+
+        <!-- TOP HWID -->
+        <section class="card">
+          <header class="card-header">
+            <h3 class="admin-subtitle">Top HWID</h3>
+            <p class="card-description">Device yang paling sering menjalankan ExHub.</p>
+          </header>
+
+          <% if (stats.topHwids && stats.topHwids.length) { %>
+            <ul class="list-ranking">
+              <% stats.topHwids.forEach(function(item, idx) { %>
+                <li class="list-ranking-item">
+                  <span class="rank"><%= idx + 1 %></span>
+                  <div class="rank-main">
+                    <div class="rank-title mono">
+                      <% if (item.hwid) { %>
+                        <%= item.hwid.length > 16
+                              ? (item.hwid.substring(0,10) + '…' + item.hwid.slice(-4))
+                              : item.hwid %>
+                      <% } else { %>
+                        -
+                      <% } %>
+                    </div>
+                    <div class="rank-sub">
+                      <%= item.lastUsername ? ('Last: @' + item.lastUsername) : '' %>
+                    </div>
+                  </div>
+                  <div class="rank-metric">
+                    <span class="rank-value"><%= item.executions || 0 %></span>
+                    <span class="rank-label">exec</span>
+                  </div>
+                </li>
+              <% }) %>
+            </ul>
+          <% } else { %>
+            <p class="empty-state small">Belum ada ranking HWID.</p>
+          <% } %>
+        </section>
+
+      </aside>
+    </div>
+
+    <!-- LOADER USERS LIST (ALL PLAYERS) -->
+    <section class="admin-section" id="loader-users">
+      <div class="card">
+        <header class="card-header">
+          <div>
+            <h2 class="admin-subtitle">Loader Users (All Players)</h2>
+            <p class="card-description">
+              Daftar semua kombinasi script/player/HWID yang pernah melaporkan eksekusi ke /api/exec.
+            </p>
+          </div>
+          <span class="card-badge">
+            Total rows:
+            <strong><%= (stats.loaderUsers && stats.loaderUsers.length) || 0 %></strong>
+          </span>
+        </header>
+
+        <div class="table-wrapper">
+          <% if (stats.loaderUsers && stats.loaderUsers.length) { %>
+            <% var loaderList = stats.loaderUsers.slice(0, 300); %>
+            <table class="table table-compact">
+              <thead>
+                <tr>
+                  <th>Script</th>
+                  <th>User</th>
+                  <th>UserId</th>
+                  <th>HWID</th>
+                  <th>Exec</th>
+                  <th>Maps</th>
+                  <th>Key</th>
+                  <th>Last Exec</th>
+                  <th>IP</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% loaderList.forEach(function(item) { %>
+                  <tr>
+                    <td>
+                      <div class="table-main-text"><%= item.scriptName || item.scriptId || '-' %></div>
+                      <div class="table-sub-text"><%= item.scriptId || '' %></div>
+                    </td>
+                    <td>
+                      <div class="table-main-text">
+                        <%= item.displayName || item.username || '-' %>
+                      </div>
+                      <div class="table-sub-text">
+                        @<%= item.username || '-' %>
+                      </div>
+                    </td>
+                    <td>
+                      <div class="table-main-text">
+                        <%= item.userId || '-' %>
+                      </div>
+                      <% if (item.userId) { %>
+                        <button type="button"
+                                class="chip chip-copy"
+                                data-copy="<%= item.userId %>">
+                          copy
+                        </button>
+                      <% } %>
+                    </td>
+                    <td>
+                      <div class="table-main-text hwid-cell">
+                        <% if (item.hwid) { %>
+                          <span class="mono">
+                            <%= item.hwid.length > 12
+                                  ? (item.hwid.substring(0,6) + '…' + item.hwid.slice(-4))
+                                  : item.hwid %>
+                          </span>
+                        <% } else { %>
+                          -
+                        <% } %>
+                      </div>
+                      <% if (item.hwid) { %>
+                        <button type="button"
+                                class="chip chip-copy"
+                                data-copy="<%= item.hwid %>">
+                          copy
+                        </button>
+                      <% } %>
+                    </td>
+                    <td>
+                      <div class="table-main-text">
+                        <%= item.totalExecutes || 0 %>
+                      </div>
+                    </td>
+                    <td>
+                      <%
+                        var mapsLU = Array.isArray(item.allMapList) ? item.allMapList : [];
+                        if (mapsLU.length) {
+                      %>
+                        <div class="map-history">
+                          <% mapsLU.slice(0, 3).forEach(function(m) {
+                               var label = m.mapName || (m.placeId ? ('Place ' + m.placeId) : (m.serverId || 'Unknown'));
+                          %>
+                            <span class="map-history-item"><%= label %></span>
+                          <% }); %>
+                          <% if (mapsLU.length > 3) { %>
+                            <span class="map-history-item">+<%= mapsLU.length - 3 %> more</span>
+                          <% } %>
+                        </div>
+                      <% } else { %>
+                        <div class="table-main-text">-</div>
+                      <% } %>
+                    </td>
+                    <td>
+                      <% if (item.keyToken) { %>
+                        <div class="table-main-text mono">
+                          <%= item.keyToken.length > 12
+                                ? (item.keyToken.substring(0,4) + '…' + item.keyToken.slice(-4))
+                                : item.keyToken %>
+                        </div>
+                        <button type="button"
+                                class="chip chip-copy"
+                                data-copy="<%= item.keyToken %>">
+                          copy
+                        </button>
+                      <% } else { %>
+                        -
+                      <% } %>
+                    </td>
+                    <td>
+                      <div class="table-main-text">
+                        <%= item.lastExecuteAt || '-' %>
+                      </div>
+                    </td>
+                    <td>
+                      <div class="table-main-text">
+                        <%= item.lastIp || '-' %>
+                      </div>
+                    </td>
+                    <td>
+                      <form method="post"
+                            action="/admin/exec-users/delete"
+                            onsubmit="return confirm('Yakin hapus data tracking player ini?');">
+                        <input type="hidden" name="entryKey" value="<%= item.key %>" />
+                        <button type="submit" class="btn-ghost btn-small">
+                          Delete
+                        </button>
+                      </form>
+                    </td>
+                  </tr>
+                <% }) %>
+              </tbody>
+            </table>
+            <% if (stats.loaderUsers.length > 300) { %>
+              <p class="card-description small">
+                Ditampilkan 300 row pertama dari <%= stats.loaderUsers.length %> total data.
+              </p>
+            <% } %>
+          <% } else { %>
+            <p class="empty-state small">
+              Belum ada data dari /api/exec.
+            </p>
+          <% } %>
+        </div>
+      </div>
+    </section>
+
+    <!-- SCRIPT MANAGEMENT -->
+    <section class="admin-section" id="scripts-section">
+      <div class="card">
+        <header class="card-header">
+          <div>
+            <h2 class="admin-subtitle">Scripts</h2>
+            <p class="card-description">
+              Konfigurasi metadata setiap script (nama, game, versi, status, free/premium, thumbnail, dan file).
+              Untuk menghapus script: ubah status ke <strong>down</strong>, simpan, lalu gunakan tombol Delete.
+            </p>
+          </div>
+        </header>
+
+        <div class="admin-table">
+          <% scripts.forEach(function(script) { %>
+            <form method="post"
+                  action="/admin/scripts/<%= script.id %>"
+                  enctype="multipart/form-data"
+                  class="admin-script-row">
+              <div class="row-main">
+
+                <!-- HEADER SCRIPT -->
+                <div class="row-header">
+                  <div class="row-title">
+                    <strong><%= script.id %></strong>
+                    <% if (script.gameName) { %>
+                      <span class="row-subtitle"><%= script.gameName %></span>
+                    <% } %>
+                    <% if (script.name && script.name !== script.id) { %>
+                      <div class="row-subtitle small">
+                        <%= script.name %>
+                      </div>
+                    <% } %>
+                  </div>
+                  <div class="row-tags">
+                    <span class="badge-soft">
+                      Status: <%= script.status || 'working' %>
+                    </span>
+                    <span class="badge-soft">
+                      Uses: <%= script.uses || 0 %>
+                    </span>
+                    <span class="badge-soft">
+                      Users: <%= script.users || 0 %>
+                    </span>
+                    <% if (script.hasBody) { %>
+                      <span class="badge-soft">
+                        Body: saved
+                      </span>
+                    <% } else { %>
+                      <span class="badge-soft">
+                        Body: missing
+                      </span>
+                    <% } %>
+                  </div>
+                </div>
+
+                <!-- FORM DETAIL -->
+                <div class="row-cols">
+                  <label>
+                    Name
+                    <input type="text" name="name" value="<%= script.name %>" />
+                  </label>
+                  <label>
+                    Game Name
+                    <input type="text" name="gameName" value="<%= script.gameName %>" />
+                  </label>
+                  <label>
+                    Version
+                    <input type="text" name="version" value="<%= script.version %>" />
+                  </label>
+                  <label>
+                    Status
+                    <select name="status">
+                      <option value="working" <%= script.status === 'working' ? 'selected' : '' %>>working</option>
+                      <option value="testing" <%= script.status === 'testing' ? 'selected' : '' %>>testing</option>
+                      <option value="down"    <%= script.status === 'down'    ? 'selected' : '' %>>down</option>
+                    </select>
+                  </label>
+                  <label class="checkbox-inline">
+                    <input type="checkbox" name="isFree" <%= script.isFree ? 'checked' : '' %> /> Free
+                  </label>
+                  <label>
+                    Uses
+                    <input type="number" name="uses" value="<%= script.uses || 0 %>" />
+                  </label>
+                  <label>
+                    Users
+                    <input type="number" name="users" value="<%= script.users || 0 %>" />
+                  </label>
+                  <label>
+                    Thumbnail URL
+                    <input type="text" name="thumbnail" value="<%= script.thumbnail || '' %>" />
+                  </label>
+                  <label>
+                    Script File
+                    <input type="text" name="scriptFile" value="<%= script.scriptFile %>" />
+                    <span class="field-hint">
+                      Opsional, catatan internal nama file. Body script utama di
+                      <strong>Upload Script</strong> atau <strong>Script Body</strong>.
+                    </span>
+                  </label>
+
+                  <!-- Upload / paste body script (publish ke API loader) -->
+                  <label>
+                    Upload Script (.lua / .txt)
+                    <input type="file" name="scriptUpload" accept=".lua,.txt" />
+                  </label>
+                  <label>
+                    Script Body (opsional)
+                    <textarea name="scriptBody"
+                              rows="4"
+                              placeholder="Paste Lua script di sini (jika diisi, akan diprioritaskan daripada file upload)"></textarea>
+                  </label>
+                </div>
+
+                <!-- PREVIEW AREA (READ-ONLY, DARI SERVER) -->
+                <div class="script-preview">
+                  <div class="script-preview-header">
+                    <div class="script-preview-title">
+                      Saved Script Preview (read-only)
+                    </div>
+                    <div class="script-preview-tools">
+                      <button type="button"
+                              class="btn-ghost btn-small script-preview-toggle"
+                              data-target="#preview-<%= script.id %>"
+                              data-show-label="Lihat Preview"
+                              data-hide-label="Tutup Preview">
+                        Lihat Preview
+                      </button>
+                      <% if (script.hasBody) { %>
+                        <div class="script-preview-links">
+                          <a href="/admin/scripts/<%= script.id %>/body"
+                             target="_blank"
+                             class="btn-ghost btn-small">
+                            Open Full Body
+                          </a>
+                        </div>
+                      <% } %>
+                    </div>
+                  </div>
+
+                  <!-- loader snippet -->
+                  <div class="script-preview-loader-snippet">
+                    <span class="field-hint">
+                      Loader:
+                      <code class="mono">
+loadstring(game:HttpGet("https://exc-webs.vercel.app/api/script/<%= script.id %>", true))()
+                      </code>
+                      <button type="button"
+                              class="chip chip-copy"
+                              data-copy='loadstring(game:HttpGet("https://exc-webs.vercel.app/api/script/<%= script.id %>", true))()'>
+                        copy loader
+                      </button>
+                    </span>
+                  </div>
+
+                  <!-- panel isi script -->
+                  <div class="script-preview-body is-collapsed" id="preview-<%= script.id %>">
+                    <% if (script.hasBody && script.bodyPreview) { %>
+                      <pre><code><%= script.bodyPreview %><% if (script.bodyPreview.length >= 512) { %>
+
+... (preview truncated, buka "Open Full Body" untuk isi lengkap)
+<% } %></code></pre>
+                      <span class="field-hint">
+                        Preview di atas diambil dari body yang sudah tersimpan di server (KV / file).
+                        Untuk isi lengkap dan akurat, gunakan tombol <strong>Open Full Body</strong> di atas (admin-only, text/plain).
+                      </span>
+                    <% } else if (script.hasBody && !script.bodyPreview) { %>
+                      <p class="field-hint">
+                        Body script tersimpan, namun preview tidak tersedia. Gunakan tombol <strong>Open Full Body</strong> di atas.
+                      </p>
+                    <% } else { %>
+                      <p class="field-hint">
+                        Belum ada body script yang tersimpan untuk ID ini. Upload file atau isi Script Body lalu Save.
+                      </p>
+                    <% } %>
+                  </div>
+                </div>
+
+              </div>
+
+              <!-- ACTIONS: SAVE + CLEAR BODY + DELETE (delete hanya aktif jika status = down) -->
+              <div class="row-actions">
+                <button class="btn-primary btn-small"
+                        type="submit"
+                        name="_action"
+                        value="save">
+                  Save
+                </button>
+
+                <% if (script.hasBody) { %>
+                  <button class="btn-ghost btn-small"
+                          type="submit"
+                          name="_action"
+                          value="clear-body"
+                          onclick="return confirm('Yakin menghapus isi (body) script untuk ID <%= script.id %>? Loader API tetap ada, tapi body akan dikosongkan.');">
+                    Clear Script Body
+                  </button>
+                <% } %>
+
+                <% if (script.status === 'down') { %>
+                  <button class="btn-ghost btn-small"
+                          type="submit"
+                          name="_action"
+                          value="delete"
+                          onclick="return confirm('Yakin hapus script ini beserta body Lua/txt dari loader?');">
+                    Delete Script
+                  </button>
+                <% } else { %>
+                  <span class="row-actions-note small">
+                    Set status ke <strong>down</strong> lalu Save untuk mengaktifkan tombol <em>Delete Script</em>.
+                  </span>
+                <% } %>
+              </div>
+            </form>
+          <% }) %>
+        </div>
+      </div>
+    </section>
+
+    <!-- PRIVATE RAW FILES (HANYA ADMIN, TIDAK DIPUBLISH KE WEB/API) -->
+    <section class="admin-section" id="raw-files">
+      <div class="card">
+        <header class="card-header">
+          <div>
+            <h2 class="admin-subtitle">Private Raw Files</h2>
+            <p class="card-description">
+              File Lua/txt pribadi yang tidak dipublish ke halaman publik.
+              Hanya terlihat di panel admin (bisa upload, edit, dan delete).
+            </p>
+          </div>
+        </header>
+
+        <% var rawFilesSafe = (typeof rawFiles !== 'undefined' && rawFiles) ? rawFiles : []; %>
+
+        <div class="admin-table">
+          <% if (rawFilesSafe.length) { %>
+            <% rawFilesSafe.forEach(function(file) { %>
+              <form method="post"
+                    action="/admin/raw-files/<%= file.id %>"
+                    enctype="multipart/form-data"
+                    class="admin-script-row">
+                <div class="row-main">
+                  <div class="row-header">
+                    <div class="row-title">
+                      <strong><%= file.id %></strong>
+                      <% if (file.name) { %>
+                        <span class="row-subtitle"><%= file.name %></span>
+                      <% } %>
+                    </div>
+                    <div class="row-tags">
+                      <span class="badge-soft">
+                        Last update: <%= file.updatedAt || '-' %>
+                      </span>
+                    </div>
+                  </div>
+
+                  <!-- RAW LINK PREVIEW -->
+                  <div class="raw-link-row">
+                    <div class="raw-link-label">Raw link</div>
+                    <div class="raw-link-main">
+                      <a href="/<%= file.id %>.raw"
+                         target="_blank"
+                         class="raw-link-url"
+                         data-raw-path="/<%= file.id %>.raw">
+                        /<%= file.id %>.raw
+                      </a>
+                      <button type="button"
+                              class="chip chip-copy raw-link-copy"
+                              data-raw-path="/<%= file.id %>.raw">
+                        copy link
+                      </button>
+                      <a href="/admin/raw-files/<%= file.id %>/body"
+                         target="_blank"
+                         class="btn-ghost btn-small">
+                        Open Body
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="row-cols">
+                    <label>
+                      Name / Label
+                      <input type="text" name="name" value="<%= file.name || '' %>" />
+                    </label>
+                    <label>
+                      Note (internal)
+                      <input type="text" name="note" value="<%= file.note || '' %>" />
+                    </label>
+                    <label>
+                      Upload (.lua / .txt)
+                      <input type="file" name="rawUpload" accept=".lua,.txt" />
+                    </label>
+                    <label>
+                      File Body
+                      <textarea name="body"
+                                rows="5"
+                                placeholder="Isi file (jika diisi, akan menimpa isi lama)"><%= file.preview || '' %></textarea>
+                    </label>
+                  </div>
+                </div>
+                <div class="row-actions">
+                  <button class="btn-primary btn-small" type="submit">Save</button>
+                  <button class="btn-ghost btn-small"
+                          type="submit"
+                          name="_action"
+                          value="delete"
+                          onclick="return confirm('Yakin hapus private file ini?');">
+                    Delete
+                  </button>
+                </div>
+              </form>
+            <% }) %>
+          <% } else { %>
+            <p class="empty-state small" style="padding: 12px 0 4px;">
+              Belum ada private raw file yang tersimpan.
+            </p>
+          <% } %>
+        </div>
+      </div>
+    </section>
+
+    <!-- ADD NEW PRIVATE RAW FILE -->
+    <section class="admin-section" id="add-raw-file">
+      <div class="card">
+        <header class="card-header">
+          <div>
+            <h2 class="admin-subtitle">Add private raw file</h2>
+            <p class="card-description">
+              Simpan file Lua/txt pribadi yang hanya bisa dilihat di panel admin.
+            </p>
+          </div>
+        </header>
+
+        <form method="post"
+              action="/admin/raw-files"
+              enctype="multipart/form-data"
+              class="admin-form add-form">
+          <div class="row-cols">
+            <label>
+              ID (slug unik)
+              <input type="text" name="id" placeholder="indo-ocean-dev-raw" required />
+              <span class="field-hint">
+                Akan menjadi link: <code>/[id].raw</code><br />
+                Contoh: <code id="raw-example-url">https://exc-webs.vercel.app/wakaka.raw</code> untuk ID <code>wakaka</code>.
+              </span>
+            </label>
+            <label>
+              Name / Label
+              <input type="text" name="name" placeholder="Indo Ocean Dev Tab" />
+            </label>
+            <label>
+              Note (internal)
+              <input type="text" name="note" placeholder="catatan singkat / versi / tujuan" />
+            </label>
+            <label>
+              Upload (.lua / .txt)
+              <input type="file" name="rawUpload" accept=".lua,.txt" />
+            </label>
+            <label>
+              File Body (opsional)
+              <textarea name="body"
+                        rows="5"
+                        placeholder="Paste isi Lua/txt di sini (jika diisi, akan diprioritaskan daripada file upload)"></textarea>
+            </label>
+          </div>
+          <button class="btn-outline full" type="submit">Save Private File</button>
+        </form>
+      </div>
+    </section>
+
+    <!-- ADD NEW SCRIPT (PUBLISHED VIA LOADER API) -->
+    <section class="admin-section" id="add-script">
+      <div class="card">
+        <header class="card-header">
+          <div>
+            <h2 class="admin-subtitle">Add new script</h2>
+            <p class="card-description">
+              Daftarkan script baru ke ExHub dan hubungkan dengan file Lua Anda.
+            </p>
+          </div>
+        </header>
+
+        <form method="post"
+              action="/admin/scripts"
+              enctype="multipart/form-data"
+              class="admin-form add-form">
+          <div class="row-cols">
+            <label>
+              ID (slug)
+              <input type="text" name="id" placeholder="indo-ocean" required />
+              <span class="field-hint">
+                ID dipakai di URL loader & analitik. Gunakan nama pendek, unik, tanpa spasi.
+              </span>
+            </label>
+            <label>
+              Name
+              <input type="text" name="name" />
+            </label>
+            <label>
+              Game Name
+              <input type="text" name="gameName" />
+            </label>
+            <label>
+              Version
+              <input type="text" name="version" value="v1.0.0" />
+            </label>
+            <label>
+              Status
+              <select name="status">
+                <option value="working">working</option>
+                <option value="testing">testing</option>
+                <option value="down">down</option>
+              </select>
+            </label>
+            <label class="checkbox-inline">
+              <input type="checkbox" name="isFree" checked /> Free
+            </label>
+            <label>
+              Uses
+              <input type="number" name="uses" value="0" />
+            </label>
+            <label>
+              Users
+              <input type="number" name="users" value="0" />
+            </label>
+            <label>
+              Thumbnail URL
+              <input type="text" name="thumbnail" />
+            </label>
+            <label>
+              Script File
+              <input type="text" name="scriptFile" placeholder="spear_fishing.lua" />
+              <span class="field-hint">
+                Opsional, nama file referensi. Body script akan diambil dari
+                <strong>Upload Script</strong> atau <strong>Script Body</strong>.
+              </span>
+            </label>
+            <label>
+              Upload Script (.lua / .txt)
+              <input type="file" name="scriptUpload" accept=".lua,.txt" />
+            </label>
+            <label>
+              Script Body (opsional)
+              <textarea name="scriptBody"
+                        rows="4"
+                        placeholder="Paste Lua script di sini (jika diisi, akan diprioritaskan daripada file upload)"></textarea>
+            </label>
+          </div>
+          <button class="btn-outline full" type="submit">Add Script</button>
+        </form>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<!-- JS: COPY BUTTONS + TITLE / LOGO TEXT CYCLES -->
+<script>
+  // Copy untuk userId, hwid, key, serverId, keyToken, loader, dll (chip-copy)
+  document.addEventListener('click', function (ev) {
+    var btn = ev.target.closest('.chip-copy');
+    if (!btn) return;
+    var value = btn.getAttribute('data-copy');
+    if (!value) return;
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(value).then(function () {
+        var original = btn.textContent || 'copy';
+        btn.classList.add('copied');
+        btn.textContent = 'copied';
+        setTimeout(function () {
+          btn.classList.remove('copied');
+          btn.textContent = original;
+        }, 1200);
+      }).catch(function () {});
+    }
+  });
+
+  // Copy full raw link (Private Raw Files)
+  document.addEventListener('click', function (ev) {
+    var btn = ev.target.closest('.raw-link-copy');
+    if (!btn) return;
+    ev.preventDefault();
+
+    var path = btn.getAttribute('data-raw-path');
+    if (!path) return;
+    var fullUrl = window.location.origin + path;
+
+    var originalText = btn.textContent || 'copy link';
+
+    function setCopied() {
+      btn.classList.add('copied');
+      btn.textContent = 'copied';
+      setTimeout(function () {
+        btn.classList.remove('copied');
+        btn.textContent = originalText;
+      }, 1200);
+    }
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(fullUrl).then(function () {
+        setCopied();
+      }).catch(function () {
+        // fallback
+        var textarea = document.createElement('textarea');
+        textarea.value = fullUrl;
+        textarea.style.position = 'fixed';
+        textarea.style.left = '-9999px';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        try { document.execCommand('copy'); } catch (e) {}
+        document.body.removeChild(textarea);
+        setCopied();
+      });
+    } else {
+      var textarea = document.createElement('textarea');
+      textarea.value = fullUrl;
+      textarea.style.position = 'fixed';
+      textarea.style.left = '-9999px';
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+      try { document.execCommand('copy'); } catch (e) {}
+      document.body.removeChild(textarea);
+      setCopied();
+    }
+  });
+
+  // Toggle script preview panel (saved body)
+  document.addEventListener('click', function (ev) {
+    var btn = ev.target.closest('.script-preview-toggle');
+    if (!btn) return;
+
+    var targetSel = btn.getAttribute('data-target');
+    if (!targetSel) return;
+
+    var panel = document.querySelector(targetSel);
+    if (!panel) return;
+
+    var showLabel = btn.getAttribute('data-show-label') || 'Lihat Preview';
+    var hideLabel = btn.getAttribute('data-hide-label') || 'Tutup Preview';
+
+    var collapsed = panel.classList.toggle('is-collapsed');
+    btn.textContent = collapsed ? showLabel : hideLabel;
+  });
+
+  // Title + header text cycles (ExHub - Admin Dashboard berubah-ubah)
+  (function () {
+    var titles = [
+      'ExHub — Admin Dashboard',
+      'ExHub — Live Monitor',
+      'ExHub — Player & HWID Stats',
+      'ExHub — Security Panel',
+      'ExHub — Script Analytics'
+    ];
+    var logoTexts = titles.slice();
+    var idx = 0;
+    var logoEl = document.getElementById('logo-text');
+
+    function applyTitle(i) {
+      var t = titles[i] || titles[0];
+      document.title = t;
+      if (logoEl) {
+        logoEl.classList.add('logo-text-fade');
+        logoEl.textContent = logoTexts[i] || t;
+        setTimeout(function () {
+          if (logoEl) logoEl.classList.remove('logo-text-fade');
+        }, 350);
+      }
+    }
+
+    applyTitle(idx);
+
+    setInterval(function () {
+      idx = (idx + 1) % titles.length;
+      applyTitle(idx);
+    }, 6000);
+  })();
+
+  // Set contoh domain raw file sesuai domain website sekarang (loader auto-follow)
+  (function () {
+    var exampleEl = document.getElementById('raw-example-url');
+    if (!exampleEl) return;
+    var origin = (window && window.location && window.location.origin)
+      ? window.location.origin
+      : 'https://exc-webs.vercel.app';
+    origin = origin.replace(/\/+$/, '');
+    exampleEl.textContent = origin + '/wakaka.raw';
+  })();
+</script>
+
+<!-- Proteksi dasar: blokir klik kanan + beberapa shortcut DevTools -->
+<script src="/js/protect-devtools.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>ExHub — Login Required</title>
+  <link rel="icon" type="image/png" href="/img/ExLogo2.png" />
+  <link rel="stylesheet" href="/css/mainv2.css" />
+</head>
+<body class="page-dark">
+<header class="site-header">
+  <div class="container header-inner">
+    <a href="/" class="logo">
+      <span class="logo-icon">
+        <img src="/img/ExLogo2.png" alt="ExHub Logo"
+             style="width:100%;height:100%;object-fit:cover;border-radius:12px;" />
+      </span>
+      <span class="logo-text">ExHub</span>
+    </a>
+
+    <nav class="header-nav">
+      <% if (user) { %>
+        <!-- Sudah login: tampilkan user + Dashboard + Sign Out -->
+        <div class="header-user">
+          <div class="header-user-pill">
+            <% if (user.avatar) { %>
+              <img
+                src="https://cdn.discordapp.com/avatars/<%= user.id %>/<%= user.avatar %>.png?size=64"
+                alt="Avatar"
+                class="header-user-avatar"
+              />
+            <% } else { %>
+              <span class="user-icon"></span>
+            <% } %>
+            <span class="user-name"><%= user.global_name || user.username %></span>
+          </div>
+          <a href="/dashboard" class="btn btn-subtle" style="margin:0 8px;">
+            Dashboard
+          </a>
+          <form action="/logout" method="post" style="display:inline;">
+            <button type="submit" class="btn btn-ghost">Sign Out</button>
+          </form>
+        </div>
+      <% } else { %>
+        <!-- Belum login: tombol Sign In di header kanan -->
+        <a href="/auth/discord" class="btn btn-ghost">Sign In</a>
+      <% } %>
+    </nav>
+  </div>
+</header>
+
+<main class="page-main">
+  <div class="container auth-wrapper">
+    <div class="auth-card">
+      <div class="auth-icon">
+        <!-- Logo Discord utama -->
+        <span class="auth-avatar" style="overflow:hidden;display:flex;align-items:center;justify-content:center;">
+          <img
+            src="/img/discordlogo.png"
+            alt="Discord Logo"
+            style="width:56px;height:56px;object-fit:cover;border-radius:16px;"
+          />
+        </span>
+      </div>
+
+      <% if (user) { %>
+        <!-- Kalau entah bagaimana user sudah login tapi tetap masuk ke /login-required -->
+        <h1 class="auth-title">You are already signed in</h1>
+        <p class="auth-subtitle">
+          Your Discord account is already connected to ExHub.
+          You can open your dashboard and manage your keys, licenses, and account data.
+        </p>
+
+        <a href="/dashboard" class="btn btn-primary auth-button" style="margin-top:16px;">
+          Go to Dashboard
+        </a>
+
+        <p class="auth-footnote" style="margin-top:16px;">
+          If this is not your account, use <strong>Sign Out</strong> in the top-right corner,
+          then sign in again with a different Discord account.
+        </p>
+      <% } else { %>
+        <!-- Normal case: user belum login -->
+        <h1 class="auth-title">Login Required</h1>
+        <p class="auth-subtitle">
+          You need to sign in with Discord to access this page
+          (dashboard, Get Free Key, paid key management, and other protected features).
+        </p>
+
+        <!-- Tombol utama: selalu ke /auth/discord -->
+        <a href="/auth/discord" class="btn btn-discord auth-button">
+          <span class="btn-discord-icon">
+            <img
+              src="/img/discordlogo.png"
+              alt="Discord"
+              style="width:20px;height:20px;object-fit:cover;border-radius:6px;"
+            />
+          </span>
+          <span>Sign in with Discord</span>
+        </a>
+
+        <p class="auth-footnote">
+          You will be redirected to Discord to authorize ExHub.
+        </p>
+      <% } %>
+    </div>
+  </div>
+</main>
+
+<!-- Proteksi dasar: blokir klik kanan + beberapa shortcut DevTools -->
+<script src="/js/protect-devtools.js"></script>
+</body>
+</html>

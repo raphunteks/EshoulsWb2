@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title><%= typeof title !== 'undefined' && title ? title : 'ExHub — Get Free Key' %></title>
+  <link rel="icon" type="image/png" href="/img/ExLogo2.png" />
+  <link rel="stylesheet" href="/css/mainv2.css" />
+
+  <!-- Tambahan styling kecil khusus halaman ini -->
+  <style>
+    .getkey-banned-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(248, 113, 113, 0.5);
+      background: rgba(248, 113, 113, 0.14);
+      color: #fecaca;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+    .getkey-banned-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: #f97373;
+    }
+    .btn-disabled,
+    .btn[disabled],
+    .btn-getkey-main[disabled] {
+      opacity: 0.45;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body class="page-dark">
+
+<header class="site-header">
+  <div class="container header-inner">
+    <a href="/" class="logo">
+      <span class="logo-icon">
+        <img src="/img/ExLogo2.png" alt="ExHub Logo"
+             style="width:100%;height:100%;object-fit:cover;border-radius:12px;" />
+      </span>
+      <span class="logo-text">ExHub</span>
+    </a>
+
+    <nav class="header-nav">
+      <% if (typeof user !== 'undefined' && user) { %>
+        <div class="header-user">
+          <div class="header-user-pill">
+            <% if (user.avatar) { %>
+              <img
+                src="https://cdn.discordapp.com/avatars/<%= user.id %>/<%= user.avatar %>.png?size=64"
+                alt="Avatar"
+                class="header-user-avatar"
+              />
+            <% } %>
+            <span class="user-name"><%= user.global_name || user.username %></span>
+          </div>
+
+          <!-- Tombol Dashboard di samping avatar + display name -->
+          <a
+            href="/dashboard"
+            class="btn btn-ghost btn-dashboard-link"
+            style="margin:0 8px;"
+          >
+            Dashboard
+          </a>
+
+          <form action="/logout" method="post" style="display:inline;">
+            <button type="submit" class="btn btn-ghost">Sign Out</button>
+          </form>
+        </div>
+      <% } else { %>
+        <a href="/auth/discord" class="btn btn-primary">Sign in with Discord</a>
+      <% } %>
+    </nav>
+  </div>
+</header>
+
+<main class="page-main">
+  <div class="container getkey-layout">
+
+    <%
+      // =========================
+      //  VARIABEL DEFENSIF
+      // =========================
+
+      // Flag banned dari server
+      var isBannedAccount = (typeof isBannedAccount !== 'undefined' && isBannedAccount) ? true : false;
+
+      // Config UI (optional) dari serverv2.js
+      var uiConfig      = (typeof freeKeyUiConfig !== 'undefined' && freeKeyUiConfig) ? freeKeyUiConfig : null;
+      var uiGlobal      = uiConfig && uiConfig.global      ? uiConfig.global      : {};
+      var uiWorkink     = uiConfig && uiConfig.workink     ? uiConfig.workink     : {};
+      var uiLinkvertise = uiConfig && uiConfig.linkvertise ? uiConfig.linkvertise : {};
+
+      var providerId = (typeof adsProvider !== 'undefined' && adsProvider)
+        ? String(adsProvider).toLowerCase()
+        : 'workink';
+      if (providerId !== 'linkvertise') providerId = 'workink';
+
+      var providerName = (providerId === 'linkvertise') ? 'Linkvertise' : 'Work.ink';
+      var providerLogo = (providerId === 'linkvertise')
+        ? '/img/linkvertise.png'
+        : '/img/workink.jpg';
+
+      var providerUi = (providerId === 'linkvertise') ? uiLinkvertise : uiWorkink;
+
+      var totalSlots = (typeof maxKeys !== 'undefined' && maxKeys != null) ? maxKeys : 5;
+      var keysList   = Array.isArray(keys) ? keys : [];
+      var usedSlots  = keysList.length;
+      var validityHours =
+        (typeof defaultKeyHours !== 'undefined' && defaultKeyHours) ? defaultKeyHours : 3;
+
+      // =========================
+      //  TEXT HERO (DARI CONFIG)
+      // =========================
+      var heroMain = (uiGlobal && uiGlobal.heroMain) ? uiGlobal.heroMain : 'Complete';
+      var heroHighlight = (uiGlobal && uiGlobal.heroHighlight) ? uiGlobal.heroHighlight : 'Verification';
+
+      var subtitleText;
+      if (uiGlobal && uiGlobal.subtitle) {
+        subtitleText = uiGlobal.subtitle;
+      } else if (uiGlobal && uiGlobal.dashboardCaption) {
+        // kompatibel dengan nama field lama
+        subtitleText = uiGlobal.dashboardCaption;
+      } else {
+        subtitleText = 'Complete a quick verification to get your ExHub key and start using our scripts.';
+      }
+
+      var bullet1Text = (uiGlobal && uiGlobal.bullet1)
+        ? uiGlobal.bullet1
+        : 'Secure & HWID-aware key system.';
+
+      var bullet2Text = (uiGlobal && uiGlobal.bullet2)
+        ? uiGlobal.bullet2
+        : 'Instant delivery right after verification.';
+
+      var bullet3Text;
+      if (uiGlobal && uiGlobal.bullet3) {
+        bullet3Text = uiGlobal.bullet3;
+      } else if (uiGlobal && uiGlobal.validityLabel) {
+        bullet3Text = uiGlobal.validityLabel;
+      } else {
+        bullet3Text = validityHours + 'h validity, easy renew when expired.';
+      }
+
+      // =========================
+      //  PROGRESS ADS
+      // =========================
+      var adsDoneFromServer = (typeof adsProgressDone !== 'undefined') ? !!adsProgressDone : false;
+      var adsUsedFromServer = (typeof adsUsedFlag !== 'undefined') ? !!adsUsedFlag : false;
+
+      // Untuk tampilan progress:
+      // - 1/1 kalau sudah done dan BELUM digunakan
+      // - setelah Generate/Renew berhasil, server set used=true → UI balik 0/1
+      var adsProgressUiDone = adsDoneFromServer && !adsUsedFromServer;
+
+      // Flag dari server (tidak ada fallback di client), lalu di-override banned
+      var baseCanGenerate = (typeof allowGenerate !== 'undefined') ? !!allowGenerate : false;
+      var baseCanRenew    = (typeof canRenew !== 'undefined') ? !!canRenew : false;
+      var canGenerateBtn  = baseCanGenerate && !isBannedAccount;
+      var canRenewGlobal  = baseCanRenew    && !isBannedAccount;
+
+      var currentId   = (typeof currentUserId !== 'undefined') ? currentUserId : '';
+
+      // URL ADS – fallback hardcode jika adsUrl tidak dikirim dari server
+      var adsDefaultWorkink     = 'https://work.ink/23P2/exhubfreekey';
+      var adsDefaultLinkvertise = 'https://link-target.net/2995260/uaE3u7P8CG5D';
+      var adsUrlFromServer      = (typeof adsUrl !== 'undefined' && adsUrl) ? adsUrl : null;
+      var adsUrlSafe = adsUrlFromServer ||
+        (providerId === 'linkvertise' ? adsDefaultLinkvertise : adsDefaultWorkink);
+
+      var keyActionUrl   = (typeof keyAction !== 'undefined' && keyAction) ? keyAction : '/getfreekey/generate';
+      var renewActionUrl = (typeof renewAction !== 'undefined' && renewAction) ? renewAction : '/getfreekey/extend';
+
+      var errMsg = (typeof errorMessage !== 'undefined' && errorMessage) ? errorMessage : '';
+    %>
+
+    <!-- HERO SECTION -->
+    <section class="getkey-hero">
+      <div class="getkey-hero-left">
+        <p class="getkey-eyebrow">Get Free Key</p>
+        <h1 class="getkey-title">
+          <%= heroMain %> <span><%= heroHighlight %></span>
+        </h1>
+        <p class="getkey-subtitle">
+          <%= subtitleText %>
+        </p>
+
+        <ul class="getkey-bullets">
+          <li><%= bullet1Text %></li>
+          <li><%= bullet2Text %></li>
+          <li><%= bullet3Text %></li>
+        </ul>
+
+        <% if (isBannedAccount) { %>
+          <div class="getkey-banned-pill" style="margin-top:12px;">
+            <span class="getkey-banned-dot"></span>
+            <span>Banned account — keys may be restricted.</span>
+          </div>
+        <% } %>
+      </div>
+
+      <div class="getkey-hero-right">
+        <div class="getkey-provider-card">
+          <div class="getkey-provider-main">
+            <div class="getkey-provider-logo-wrap">
+              <img
+                src="<%= providerLogo %>"
+                alt="<%= providerName %>"
+                class="getkey-provider-logo"
+              />
+            </div>
+            <div class="getkey-provider-text">
+              <p class="provider-name"><%= providerName %></p>
+              <p class="provider-caption">
+                <% if (providerUi && providerUi.dashboardDescription) { %>
+                  <%= providerUi.dashboardDescription %>
+                <% } else { %>
+                  Complete a short task and get rewarded. Takes less than 2 minutes.
+                <% } %>
+              </p>
+            </div>
+          </div>
+
+          <div class="getkey-provider-progress">
+            <div class="provider-progress-label">
+              <span>Progress</span>
+              <span class="provider-progress-value"><%= adsProgressUiDone ? '1 / 1' : '0 / 1' %></span>
+            </div>
+            <div class="provider-progress-bar<%= adsProgressUiDone ? ' provider-progress-bar--done' : '' %>">
+              <span class="provider-progress-fill"></span>
+            </div>
+          </div>
+
+          <div class="getkey-provider-actions">
+            <% if (isBannedAccount) { %>
+              <!-- BANNED: START non-aktif -->
+              <button
+                type="button"
+                class="btn-getkey-main btn-disabled"
+                disabled
+                aria-disabled="true"
+              >
+                START
+              </button>
+              <p class="getkey-helper-text">
+                This Discord account is <strong>banned</strong>. Free key verification is disabled for this user.
+              </p>
+            <% } else { %>
+              <% var startDisabled = adsDoneFromServer && !adsUsedFromServer; %>
+
+              <% if (startDisabled) { %>
+                <!-- Checkpoint aktif & belum dipakai → START dikunci -->
+                <button
+                  type="button"
+                  class="btn-getkey-main btn-disabled"
+                  disabled
+                  aria-disabled="true"
+                >
+                  START
+                </button>
+              <% } else { %>
+                <!-- Boleh buka ads -->
+                <a
+                  href="<%= adsUrlSafe %>"
+                  class="btn-getkey-main"
+                >
+                  START
+                </a>
+              <% } %>
+
+              <% if (!adsDoneFromServer) { %>
+                <p class="getkey-helper-text">
+                  Complete the verification first to unlock <strong>Generate</strong> or <strong>Renew</strong>.
+                </p>
+              <% } else if (adsUsedFromServer) { %>
+                <p class="getkey-helper-text">
+                  This verification has been used. Run <strong>START</strong> again for a new action.
+                </p>
+              <% } else { %>
+                <p class="getkey-helper-text">
+                  Checkpoint unlocked — you can <strong>Generate</strong> or <strong>Renew</strong> one key.
+                </p>
+              <% } %>
+            <% } %>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- KEYS LIST / TABLE -->
+    <section class="getkey-keys-section">
+      <header class="getkey-keys-header">
+        <div>
+          <h2>Your Keys</h2>
+          <p class="getkey-keys-caption">
+            Your keys (<%= usedSlots %> / <%= totalSlots %>)
+          </p>
+        </div>
+        <% if (isBannedAccount) { %>
+          <div class="getkey-banned-pill">
+            <span class="getkey-banned-dot"></span>
+            <span>Banned account — keys may be restricted.</span>
+          </div>
+        <% } %>
+      </header>
+
+      <% if (errMsg) { %>
+        <div class="auth-error getkey-error"><%= errMsg %></div>
+      <% } %>
+
+      <div class="getkey-keys-table">
+        <div class="getkey-row getkey-row--head">
+          <div>Key</div>
+          <div>Time Left</div>
+          <div>Status</div>
+          <div>Actions</div>
+        </div>
+
+        <% if (keysList.length > 0) { %>
+          <% keysList.forEach(function(k) { 
+               // ===== Status & badge =====
+               var statusLabel = (k && k.status) ? k.status : 'Active';
+               var isActive    = (statusLabel === 'Active');
+               var isExpired   = (statusLabel === 'Expired');
+               var badgeClass  = isActive ? 'badge-active' : 'badge-inactive';
+
+               // ===== Expire timestamp (ms) untuk countdown realtime =====
+               var expireTs = null;
+               if (typeof k.expiresAfter !== 'undefined' && k.expiresAfter != null) {
+                 expireTs = parseInt(k.expiresAfter, 10);
+               } else if (typeof k.expiresAtMs !== 'undefined' && k.expiresAtMs != null) {
+                 expireTs = parseInt(k.expiresAtMs, 10);
+               } else if (typeof k.expiresAt !== 'undefined' && k.expiresAt != null) {
+                 var tmp = parseInt(k.expiresAt, 10);
+                 if (!isNaN(tmp)) expireTs = tmp;
+               }
+
+               // ===== Mode tombol awal (Copy vs Renew) =====
+               var btnMode        = isExpired ? 'renew' : 'copy';
+               var btnLabel       = isExpired ? 'Renew' : 'Copy';
+               var btnDisabledStr = '';
+
+               // Kalau status Expired tapi server belum mengizinkan Renew (checkpoint belum unlocked)
+               if (isExpired && !canRenewGlobal) {
+                 btnDisabledStr = 'disabled="disabled" aria-disabled="true"';
+               }
+
+               // Kalau akun banned → semua tombol Renew harus disabled
+               if (isBannedAccount && btnMode === 'renew') {
+                 btnDisabledStr = 'disabled="disabled" aria-disabled="true"';
+               }
+
+               var expireAttr = expireTs ? String(expireTs) : '';
+          %>
+            <div
+              class="getkey-row"
+              data-status="<%= statusLabel %>"
+              <% if (expireAttr) { %> data-expire-ts="<%= expireAttr %>" <% } %>
+            >
+              <div class="getkey-key">
+                <code><%= k.token %></code>
+              </div>
+              <div class="getkey-time">
+                <span class="getkey-time-label">
+                  <%= k.timeLeftLabel || (expireAttr ? '' : '-') %>
+                </span>
+              </div>
+              <div class="getkey-status">
+                <span class="badge <%= badgeClass %> getkey-status-badge">
+                  <span class="badge-dot"></span>
+                  <%= statusLabel %>
+                </span>
+              </div>
+              <div class="getkey-actions">
+                <!-- Tombol 2-in-1: Copy (Active) → Renew (Expired) -->
+                <button
+                  type="button"
+                  class="btn btn-ghost btn-xs"
+                  data-copy-or-renew="1"
+                  data-mode="<%= btnMode %>"
+                  data-token="<%= k.token %>"
+                  <%- btnDisabledStr %>
+                >
+                  <%= btnLabel %>
+                </button>
+
+                <% if (renewActionUrl) { %>
+                  <!-- Hidden form untuk Renew, akan di-submit via JS saat mode = 'renew' -->
+                  <form
+                    method="post"
+                    action="<%= renewActionUrl %>?ads=<%= providerId %>"
+                    class="inline-form"
+                    data-renew-form="1"
+                    style="display:none;"
+                  >
+                    <% if (currentId) { %>
+                      <input type="hidden" name="userId" value="<%= currentId %>" />
+                    <% } %>
+                    <input type="hidden" name="token" value="<%= k.token %>" />
+                    <button type="submit" data-renew-hidden-btn="1" style="display:none;"></button>
+                  </form>
+                <% } %>
+              </div>
+            </div>
+          <% }) %>
+        <% } else { %>
+          <div class="getkey-keys-empty">
+            No keys yet. Finish the verification above and use
+            <strong>Generate Free Key</strong> below to receive your first key.
+          </div>
+        <% } %>
+      </div>
+    </section>
+
+    <!-- CTA BAWAH – GENERATE FREE KEY DI TENGAH -->
+    <section class="getkey-cta-main" style="margin-top:24px;">
+      <div style="text-align:center;">
+        <form
+          method="post"
+          action="<%= keyActionUrl %>?ads=<%= providerId %>"
+          data-new-key-form="1"
+          style="display:inline-flex;flex-direction:column;align-items:center;gap:8px;"
+        >
+          <% if (currentId) { %>
+            <input type="hidden" name="userId" value="<%= currentId %>" />
+          <% } %>
+          <button
+            type="submit"
+            class="btn btn-primary btn-cta-main"
+            style="min-width:220px;padding:10px 22px;font-size:0.95rem;"
+            <% if (!canGenerateBtn) { %>disabled aria-disabled="true"<% } %>>
+            Generate Free Key
+          </button>
+
+          <% if (isBannedAccount) { %>
+            <p class="getkey-cta-caption" style="margin-top:4px;font-size:0.8rem;color:#fecaca;max-width:360px;">
+              This Discord account is banned. New free keys and renew actions are blocked.
+            </p>
+          <% } else if (!canGenerateBtn) { %>
+            <p class="getkey-cta-caption" style="margin-top:4px;font-size:0.8rem;color:#9ca3c0;max-width:340px;">
+              Complete <strong>START</strong> verification first. After redirecting back here,
+              this button or <strong>Renew</strong> will be unlocked for one action.
+            </p>
+          <% } else { %>
+            <p class="getkey-cta-caption" style="margin-top:4px;font-size:0.8rem;color:#9ca3c0;max-width:340px;">
+              This checkpoint allows <strong>one</strong> action: choose either
+              <strong>Generate Free Key</strong> or <strong>Renew</strong>.
+            </p>
+          <% } %>
+        </form>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<script>
+(function() {
+  try {
+    // Bersihkan ?done=1 di URL, tetap pertahankan ?ads=workink / ?ads=linkvertise
+    var params = new URLSearchParams(window.location.search);
+    var done = params.get('done');
+    if (done === '1') {
+      params.delete('done');
+      if (!params.get('ads')) {
+        params.set('ads', '<%= providerId %>');
+      }
+      var newUrl = window.location.pathname + '?' + params.toString();
+      window.history.replaceState({}, '', newUrl);
+    }
+  } catch (e) {
+    // ignore
+  }
+})();
+</script>
+
+<!-- SCRIPT 1: Tombol Copy / Renew (2-in-1) -->
+<script>
+(function () {
+  var buttons = document.querySelectorAll('[data-copy-or-renew]');
+  if (!buttons || !buttons.length) return;
+
+  function safeText(str, maxLen) {
+    if (typeof str !== 'string') str = String(str || '');
+    if (maxLen && maxLen > 0 && str.length > maxLen) {
+      return str.slice(0, maxLen);
+    }
+    return str;
+  }
+
+  buttons.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      if (btn.disabled) return;
+
+      var mode = btn.getAttribute('data-mode') || 'copy';
+      var token = btn.getAttribute('data-token') || '';
+
+      if (mode === 'renew') {
+        // Mode RENEW → submit form renew di row ini
+        var row = btn.closest('.getkey-row');
+        if (!row) return;
+        var renewForm = row.querySelector('[data-renew-form="1"]');
+        if (!renewForm) return;
+        renewForm.submit();
+        return;
+      }
+
+      // Mode COPY
+      token = safeText(token, 256);
+      if (!token) return;
+
+      var prev = btn.textContent;
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard
+          .writeText(token)
+          .then(function () {
+            btn.textContent = 'Copied';
+            setTimeout(function () {
+              btn.textContent = prev;
+            }, 1200);
+          })
+          .catch(function () {
+            btn.textContent = 'Failed';
+            setTimeout(function () {
+              btn.textContent = prev;
+            }, 1200);
+          });
+      } else {
+        var dummy = document.createElement('textarea');
+        dummy.value = token;
+        dummy.setAttribute('readonly', '');
+        dummy.style.position = 'fixed';
+        dummy.style.opacity = '0';
+        dummy.style.zIndex = '-1';
+        document.body.appendChild(dummy);
+        dummy.select();
+        try {
+          document.execCommand('copy');
+        } catch (e) {
+          console.warn('Copy failed', e);
+        }
+        document.body.removeChild(dummy);
+      }
+    });
+  });
+})();
+</script>
+
+<!-- SCRIPT 2: Countdown realtime + auto Expired + auto switch Copy → Renew -->
+<script>
+(function () {
+  var rows = document.querySelectorAll('.getkey-row[data-expire-ts]');
+  if (!rows || !rows.length) return;
+
+  var CAN_RENEW_GLOBAL = <%= canRenewGlobal ? 'true' : 'false' %>;
+
+  function formatRemaining(ms) {
+    if (!isFinite(ms)) return '-';
+    if (ms <= 0) return 'Expired';
+
+    var totalSec = Math.floor(ms / 1000);
+    var d = Math.floor(totalSec / 86400);
+    var h = Math.floor((totalSec % 86400) / 3600);
+    var m = Math.floor((totalSec % 3600) / 60);
+    var s = totalSec % 60;
+
+    var parts = [];
+    if (d > 0) parts.push(d + 'd');
+    if (h > 0 || d > 0) parts.push(h + 'h');
+    if (m > 0 || h > 0 || d > 0) parts.push(m + 'm');
+    parts.push(s + 's');
+    return parts.join(' ');
+  }
+
+  function tick() {
+    var now = Date.now();
+
+    rows.forEach(function (row) {
+      var expireStr = row.getAttribute('data-expire-ts');
+      if (!expireStr) return;
+
+      var expireTs = parseInt(expireStr, 10);
+      if (!expireTs || !isFinite(expireTs)) return;
+
+      var labelEl = row.querySelector('.getkey-time-label');
+      if (!labelEl) return;
+
+      var diff = expireTs - now;
+      labelEl.textContent = formatRemaining(diff);
+
+      var badge = row.querySelector('.getkey-status-badge');
+      var btn   = row.querySelector('[data-copy-or-renew]');
+
+      if (diff <= 0) {
+        // Expired
+        if (badge && !badge.dataset.expiredSet) {
+          badge.classList.remove('badge-active');
+          badge.classList.add('badge-inactive');
+          badge.innerHTML = '<span class="badge-dot"></span>Expired';
+          badge.dataset.expiredSet = '1';
+        }
+
+        if (btn) {
+          // Ubah ke mode Renew
+          if (btn.getAttribute('data-mode') !== 'renew') {
+            btn.setAttribute('data-mode', 'renew');
+            btn.textContent = 'Renew';
+          }
+
+          // Enable / disable berdasarkan checkpoint server (bukan untuk banned, sudah di-EJS)
+          if (CAN_RENEW_GLOBAL) {
+            if (!btn.hasAttribute('data-force-disabled')) {
+              btn.disabled = false;
+              btn.removeAttribute('aria-disabled');
+            }
+          } else {
+            btn.disabled = true;
+            btn.setAttribute('aria-disabled', 'true');
+          }
+        }
+      }
+    });
+  }
+
+  tick();
+  setInterval(tick, 1000);
+})();
+</script>
+
+<!-- SCRIPT 3: Gate – satu checkpoint hanya boleh 1 aksi (Generate ATAU Renew) -->
+<script>
+(function () {
+  var newKeyForm = document.querySelector('form[data-new-key-form="1"]');
+  var newKeyBtn  = newKeyForm
+    ? newKeyForm.querySelector('button[type="submit"]')
+    : null;
+
+  function disableButton(btn) {
+    if (!btn) return;
+    btn.disabled = true;
+    btn.setAttribute('aria-disabled', 'true');
+  }
+
+  function disableAllRenewButtons() {
+    var buttons = document.querySelectorAll('[data-copy-or-renew][data-mode="renew"]');
+    buttons.forEach(function (btn) {
+      disableButton(btn);
+    });
+  }
+
+  // Jika form Renew mana pun submit → matikan Generate + Renew lainnya
+  var renewForms = document.querySelectorAll('form[data-renew-form="1"]');
+  if (renewForms && renewForms.length) {
+    renewForms.forEach(function (form) {
+      form.addEventListener('submit', function () {
+        if (newKeyBtn) disableButton(newKeyBtn);
+        disableAllRenewButtons();
+      });
+    });
+  }
+
+  // Jika Generate Free Key submit → matikan semua Renew
+  if (newKeyForm && newKeyBtn) {
+    newKeyForm.addEventListener('submit', function () {
+      disableAllRenewButtons();
+      disableButton(newKeyBtn);
+    });
+  }
+})();
+</script>
+
+<!-- SCRIPT 4: Anti-spam "Open" dari Linkvertise/Work.Ink -->
+<script>
+(function () {
+  var IS_BANNED          = <%= isBannedAccount ? 'true' : 'false' %>;
+  if (IS_BANNED) {
+    // Untuk akun banned, anti-spam tidak perlu jalan (semua aksi sudah diblokir server & UI)
+    return;
+  }
+
+  var PROVIDER_ID        = '<%= providerId %>';
+  var ADS_DONE_SERVER    = <%= adsDoneFromServer ? 'true' : 'false' %>;
+  var ADS_USED_SERVER    = <%= adsUsedFromServer ? 'true' : 'false' %>;
+  var STORAGE_KEY        = 'exhub_freekey_checkpoint_' + PROVIDER_ID;
+  var ANTI_SPAM_WINDOWMS = 5 * 60 * 1000; // 5 menit
+
+  function getCheckpointUsedAt() {
+    try {
+      var v = window.localStorage.getItem(STORAGE_KEY);
+      if (!v) return 0;
+      var n = parseInt(v, 10);
+      return isNaN(n) ? 0 : n;
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  function markCheckpointConsumedNow() {
+    try {
+      window.localStorage.setItem(STORAGE_KEY, String(Date.now()));
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  // Hook ketika Generate atau Renew disubmit → tandai checkpoint ini sudah "dipakai"
+  var newKeyForm = document.querySelector('form[data-new-key-form="1"]');
+  if (newKeyForm) {
+    newKeyForm.addEventListener('submit', function () {
+      markCheckpointConsumedNow();
+    });
+  }
+
+  var renewForms = document.querySelectorAll('form[data-renew-form="1"]');
+  if (renewForms && renewForms.length) {
+    renewForms.forEach(function (form) {
+      form.addEventListener('submit', function () {
+        markCheckpointConsumedNow();
+      });
+    });
+  }
+
+  // Anti-spam:
+  var usedAt = getCheckpointUsedAt();
+  var now    = Date.now();
+  var recentlyConsumed = usedAt && (now - usedAt < ANTI_SPAM_WINDOWMS);
+
+  if (ADS_DONE_SERVER && !ADS_USED_SERVER && recentlyConsumed) {
+    // Override tampilan progress → 0/1
+    var progressValue = document.querySelector('.provider-progress-value');
+    var progressBar   = document.querySelector('.provider-progress-bar');
+    if (progressValue) {
+      progressValue.textContent = '0 / 1';
+    }
+    if (progressBar) {
+      progressBar.classList.remove('provider-progress-bar--done');
+    }
+
+    // Update helper text supaya jelas ke user
+    var helper = document.querySelector('.getkey-helper-text');
+    if (helper) {
+      helper.innerHTML =
+        'Your last verification has already been used in this browser. ' +
+        'If you really want a new free key, run <strong>START</strong> from the ads page again ' +
+        'after a short delay.';
+    }
+
+    // Disable Generate Free Key
+    var newKeyBtn = newKeyForm
+      ? newKeyForm.querySelector('button[type="submit"]')
+      : null;
+    if (newKeyBtn) {
+      newKeyBtn.disabled = true;
+      newKeyBtn.setAttribute('aria-disabled', 'true');
+    }
+
+    // Disable semua tombol Renew (mode renew)
+    var renewButtons = document.querySelectorAll('[data-copy-or-renew][data-mode="renew"]');
+    renewButtons.forEach(function (btn) {
+      btn.disabled = true;
+      btn.setAttribute('aria-disabled', 'true');
+    });
+  }
+})();
+</script>
+
+<!-- Proteksi dasar: blokir klik kanan + beberapa shortcut DevTools -->
+<script src="/js/protect-devtools.js"></script>
+</body>
+</html>
