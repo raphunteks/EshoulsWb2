@@ -14,6 +14,18 @@ const PORT = process.env.PORT || 3000;
 const PROCESS_START_TIME = Date.now();
 
 // ======================================================
+// Integrasi serverv3 (Discord bulk delete)
+// ======================================================
+
+let registerDiscordBulkDeleteRoutes = null;
+try {
+  ({ registerDiscordBulkDeleteRoutes } = require('./serverv3'));
+  console.log('[server] serverv3 module loaded.');
+} catch (err) {
+  console.error('[server] Failed to load serverv3 module:', err);
+}
+
+// ======================================================
 // Multer (upload script/ raw file)
 // ======================================================
 
@@ -92,6 +104,40 @@ async function kvGetInt(key) {
   const n = parseInt(result, 10);
   return Number.isNaN(n) ? 0 : n;
 }
+
+// ======================================================
+// KV adapter untuk serverv3 (objek .get / .set)
+// ======================================================
+
+const kvClientAdapter = hasKV
+  ? {
+      async get(key) {
+        const raw = await kvGet(key);
+        if (raw == null) return null;
+        if (typeof raw === 'string') {
+          try {
+            return JSON.parse(raw);
+          } catch (err) {
+            console.error('[server] KV adapter JSON parse error for', key, err);
+            return raw;
+          }
+        }
+        return raw;
+      },
+      async set(key, value) {
+        let toStore = value;
+        if (typeof value !== 'string') {
+          try {
+            toStore = JSON.stringify(value);
+          } catch (err) {
+            console.error('[server] KV adapter stringify error for', key, err);
+            toStore = String(value);
+          }
+        }
+        return kvSet(key, toStore);
+      }
+    }
+  : null;
 
 // ======================================================
 // Paths & KV keys
@@ -1275,9 +1321,11 @@ app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 app.use(express.static(path.join(__dirname, 'public')));
 
+// body parser
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.json());
 
+// session
 app.use(
   cookieSession({
     name: 'session',
@@ -1289,6 +1337,23 @@ app.use(
 function requireAdmin(req, res, next) {
   if (req.session && req.session.isAdmin) return next();
   return res.redirect('/admin/login');
+}
+
+// ======================================================
+// Mount serverv3 routes (Discord bulk delete by discordId)
+// ======================================================
+
+if (registerDiscordBulkDeleteRoutes) {
+  try {
+    registerDiscordBulkDeleteRoutes(app, {
+      kv: kvClientAdapter,
+      requireAdmin,
+      logger: console
+    });
+    console.log('[server] serverv3 Discord bulk-delete routes mounted.');
+  } catch (err) {
+    console.error('[server] Failed to mount serverv3 routes:', err);
+  }
 }
 
 // ======================================================
