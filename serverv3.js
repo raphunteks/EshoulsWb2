@@ -10,16 +10,20 @@
 const fs   = require("fs");
 const path = require("path");
 
-// Opsional: kalau kamu mau inject kv dari luar, boleh lewat options.
-// Di sini tetap sediakan fallback require.
+// =======================================
+//  Upstash KV client (defaultKv)
+// =======================================
 let defaultKv = null;
 try {
   // Sesuaikan dengan cara kamu import Upstash di server utama.
-  // Misal: const { kv } = require("@vercel/kv");
+  // Di Vercel umumnya: const { kv } = require("@vercel/kv")
   const kvModule = require("@vercel/kv");
   defaultKv = kvModule.kv || kvModule.default || null;
+  if (!defaultKv) {
+    console.warn("[serverv3] @vercel/kv ditemukan tapi tidak ada properti kv/default");
+  }
 } catch (err) {
-  // Jika tidak pakai @vercel/kv, biarkan null (hanya gunakan file JSON lokal).
+  console.warn("[serverv3] @vercel/kv tidak tersedia, pakai file JSON lokal saja.", err.message);
   defaultKv = null;
 }
 
@@ -38,7 +42,7 @@ const FILE_DISCORD_USERS = path.join(DATA_DIR, "discord-users.json"); // sesuaik
 const KV_REDEEMED_KEYS_KEY = "exhub:redeemed-keys";
 const KV_DELETED_KEYS_KEY  = "exhub:deleted-keys";
 const KV_EXEC_USERS_KEY    = "exhub:exec-users";
-const KV_DISCORD_USERS_KEY = "exhub:discord-users"; // atau "exhub:discord:users" kalau itu yang kamu pakai
+const KV_DISCORD_USERS_KEY = "exhub:discord-users"; // ganti kalau di project kamu pakai "exhub:discord:users"
 
 //==========================================================
 //  Helper: baca / tulis JSON lokal (fallback)
@@ -143,7 +147,10 @@ async function deleteDiscordUserData(opts) {
     defaultValue: []
   });
 
-  if (!Array.isArray(redeemedKeys)) redeemedKeys = [];
+  if (!Array.isArray(redeemedKeys)) {
+    logger.warn("[serverv3] WARNING: redeemedKeys bukan array. Nilai:", typeof redeemedKeys);
+    redeemedKeys = [];
+  }
 
   let deletedKeys = await loadStore({
     kvClient,
@@ -172,7 +179,7 @@ async function deleteDiscordUserData(opts) {
   // 2) Filter redeemed-keys dan kumpulkan token yang akan dihapus
   const nowIso = new Date().toISOString();
 
-  const keysToKeep = [];
+  const keysToKeep   = [];
   const keysToDelete = [];
 
   for (const item of redeemedKeys) {
@@ -192,8 +199,8 @@ async function deleteDiscordUserData(opts) {
   if (keysToDelete.length > 0) {
     const mappedDeleted = keysToDelete.map((item) => {
       const copy = Object.assign({}, item);
-      copy.deletedAt = nowIso;
-      copy.deleteReason = "discord-user-delete";
+      copy.deletedAt         = nowIso;
+      copy.deleteReason      = "discord-user-delete";
       copy.deleteByDiscordId = discordId;
       return copy;
     });
@@ -273,9 +280,17 @@ async function deleteDiscordUserData(opts) {
  * @param {Function} [options.logger]            - logger custom (default console)
  */
 function registerDiscordBulkDeleteRoutes(app, options = {}) {
-  const kvClient      = options.kv || defaultKv;
-  const requireAdmin  = options.requireAdmin || ((req, res, next) => next());
-  const logger        = options.logger || console;
+  const kvClient     = options.kv || defaultKv;
+  const requireAdmin = options.requireAdmin || ((req, res, next) => next());
+  const logger       = options.logger || console;
+
+  if (!app) {
+    throw new Error("[serverv3] registerDiscordBulkDeleteRoutes: app tidak terdefinisi");
+  }
+
+  // Pastikan body parser sudah di-setup di server utama:
+  // app.use(express.urlencoded({ extended: true }));
+  // app.use(express.json());
 
   // Route untuk handle form checkbox di admin-dashboarddiscord.ejs
   // Method: POST
@@ -283,7 +298,18 @@ function registerDiscordBulkDeleteRoutes(app, options = {}) {
   // Body:   discordIds (bisa string atau array)
   app.post("/admin/discord/bulk-delete-users", requireAdmin, async (req, res) => {
     try {
-      let discordIds = req.body.discordIds || req.body["discordIds[]"] || [];
+      // Support beberapa nama field untuk fleksibilitas EJS
+      let discordIds =
+        req.body.discordIds ||
+        req.body["discordIds[]"] ||
+        req.body.selectedDiscordIds ||
+        req.body["selectedDiscordIds[]"] ||
+        req.body.userIds ||
+        req.body["userIds[]"] ||
+        [];
+
+      logger.log("[serverv3] bulk-delete-users raw body:", req.body);
+      logger.log("[serverv3] bulk-delete-users raw discordIds:", discordIds);
 
       // Normalisasi ke array
       if (!Array.isArray(discordIds)) {
@@ -298,6 +324,8 @@ function registerDiscordBulkDeleteRoutes(app, options = {}) {
             .filter((id) => !!id)
         )
       );
+
+      logger.log("[serverv3] bulk-delete-users normalized IDs:", normalized);
 
       if (normalized.length === 0) {
         // Tidak ada yang dipilih
