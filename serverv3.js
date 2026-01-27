@@ -7,6 +7,9 @@
 //      • Keys di store baru (Free/Paid key per Discord user)
 //      • Data exec (legacy exec-users + exec-users:index + exec-user:<id>)
 //      • Profil Discord (lama: exhub:discord-users, baru: exhub:discord:userprofile + index)
+//  - Generate Paid Key (Month, 3 Month, 6 Month, Lifetime) per Discord user
+//    dengan store baru exhub:paidkey:user:* dan exhub:paidkey:token:*,
+//    terintegrasi dengan admin-dashboarddiscord.ejs
 //==========================================================
 
 "use strict";
@@ -60,6 +63,11 @@ const EXEC_USER_ENTRY_PREFIX  = "exhub:exec-user:";         // + <entryId> → e
 const DISCORD_USER_PROFILE_PREFIX = "exhub:discord:userprofile:"; // + <discordId>
 const DISCORD_USER_INDEX_KEY      = "exhub:discord:userindex";    // [discordId, ...]
 
+// Key konfigurasi global Free/Paid TTL (disamakan dengan serverv2.js jika ada)
+const GLOBAL_KEY_CONFIG_KV_KEY = "exhub:global-key-config";
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
 //==========================================================
 //  Helper: waktu + util kecil
 //==========================================================
@@ -102,7 +110,6 @@ function writeJsonFileSafe(filePath, data) {
 //==========================================================
 
 async function loadStore({ kvClient, kvKey, filePath, defaultValue }) {
-  // 1) Coba dari KV
   if (kvClient) {
     try {
       const value = await kvClient.get(kvKey);
@@ -114,12 +121,10 @@ async function loadStore({ kvClient, kvKey, filePath, defaultValue }) {
     }
   }
 
-  // 2) Fallback ke file lokal
   return readJsonFileSafe(filePath, defaultValue);
 }
 
 async function saveStore({ kvClient, kvKey, filePath, value }) {
-  // 1) Tulis ke KV
   if (kvClient) {
     try {
       await kvClient.set(kvKey, value);
@@ -128,7 +133,6 @@ async function saveStore({ kvClient, kvKey, filePath, value }) {
     }
   }
 
-  // 2) Tulis ke file lokal
   writeJsonFileSafe(filePath, value);
 }
 
@@ -182,6 +186,264 @@ async function sremKv(kvClient, key, member) {
   } catch (err) {
     console.error("[serverv3] KV srem error:", key, member, err);
   }
+}
+
+//==========================================================
+//  Helper tambahan: Paid Plan TTL + Token generator
+//==========================================================
+
+/**
+ * Load konfigurasi durasi Paid Plan dari KV jika ada,
+ * fallback ke nilai default:
+ *  - month: 30 hari
+ *  - 3month: 90 hari
+ *  - 6month: 180 hari
+ *  - lifetime: 365 hari
+ *
+ * Struktur yang dicoba:
+ *  - exhub:global-key-config.paidPlanConfig
+ *      { monthDays, threeMonthDays, sixMonthDays, lifetimeDays }
+ *  - atau field datar: { paidMonthDays, paidLifetimeDays, paid3MonthDays, paid6MonthDays }
+ */
+async function loadPaidPlanDurations(opts = {}) {
+  const kvClient = opts.kvClient || defaultKv;
+  const logger   = opts.logger || console;
+
+  let monthDays = 30;
+  let threeMonthDays = 90;
+  let sixMonthDays = 180;
+  let lifetimeDays = 365;
+
+  if (!kvClient) {
+    return { monthDays, threeMonthDays, sixMonthDays, lifetimeDays };
+  }
+
+  try {
+    const cfg = await getKv(kvClient, GLOBAL_KEY_CONFIG_KV_KEY);
+    if (!cfg || typeof cfg !== "object") {
+      return { monthDays, threeMonthDays, sixMonthDays, lifetimeDays };
+    }
+
+    let paidCfg = cfg.paidPlanConfig || cfg;
+
+    const m = parseInt(
+      paidCfg.monthDays ??
+        paidCfg.paidMonthDays ??
+        paidCfg.month ??
+        paidCfg.monthTTL,
+      10
+    );
+    if (!Number.isNaN(m) && m > 0) monthDays = m;
+
+    const l = parseInt(
+      paidCfg.lifetimeDays ??
+        paidCfg.paidLifetimeDays ??
+        paidCfg.lifetime ??
+        paidCfg.lifetimeTTL,
+      10
+    );
+    if (!Number.isNaN(l) && l > 0) lifetimeDays = l;
+
+    const q = parseInt(
+      paidCfg.threeMonthDays ??
+        paidCfg.paid3MonthDays ??
+        paidCfg["3monthDays"] ??
+        paidCfg["3MonthDays"],
+      10
+    );
+    if (!Number.isNaN(q) && q > 0) {
+      threeMonthDays = q;
+    } else {
+      threeMonthDays = monthDays * 3;
+    }
+
+    const h = parseInt(
+      paidCfg.sixMonthDays ??
+        paidCfg.paid6MonthDays ??
+        paidCfg["6monthDays"] ??
+        paidCfg["6MonthDays"],
+      10
+    );
+    if (!Number.isNaN(h) && h > 0) {
+      sixMonthDays = h;
+    } else {
+      sixMonthDays = monthDays * 6;
+    }
+  } catch (err) {
+    logger.error("[serverv3] loadPaidPlanDurations error:", err);
+  }
+
+  return { monthDays, threeMonthDays, sixMonthDays, lifetimeDays };
+}
+
+function generateRandomKeyToken(len = 32) {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789abcdefghijkmnopqrstuvwxyz";
+  let out = "";
+  for (let i = 0; i < len; i++) {
+    out += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return out;
+}
+
+//==========================================================
+//  Core tambahan: Generate Paid Key per Discord user
+//==========================================================
+
+/**
+ * Generate Paid Key untuk satu Discord user.
+ * Menulis ke:
+ *  - Upstash baru:
+ *      exhub:paidkey:token:<token> = record
+ *      exhub:paidkey:user:<discordId> = [token, ...]
+ *  - Jika KV tidak tersedia, fallback ke redeemed-keys.json lokal
+ *
+ * @param {Object} opts
+ * @param {string} opts.discordId
+ * @param {string} [opts.plan]  - "month" | "3month" | "6month" | "lifetime"
+ * @param {Object} [opts.kvClient]
+ * @param {Function} [opts.logger]
+ * @returns {Promise<{
+ *   discordId: string,
+ *   token: string,
+ *   plan: string,
+ *   expiresAtMs: number,
+ *   expiresAtIso: string,
+ *   record: Object
+ * }>}
+ */
+async function generatePaidKeyForDiscordUser(opts) {
+  const discordId = String(opts.discordId || "").trim();
+  if (!discordId) {
+    throw new Error("generatePaidKeyForDiscordUser: discordId kosong");
+  }
+
+  const kvClient = opts.kvClient || defaultKv;
+  const logger   = opts.logger || console;
+
+  let planRaw = String(opts.plan || "month").toLowerCase().trim();
+  if (planRaw === "three" || planRaw === "3") planRaw = "3month";
+  if (planRaw === "six" || planRaw === "6") planRaw = "6month";
+
+  const allowedPlans = ["month", "3month", "6month", "lifetime"];
+  if (!allowedPlans.includes(planRaw)) {
+    planRaw = "month";
+  }
+
+  const { monthDays, threeMonthDays, sixMonthDays, lifetimeDays } =
+    await loadPaidPlanDurations({ kvClient, logger });
+
+  let ttlDays;
+  switch (planRaw) {
+    case "3month":
+      ttlDays = threeMonthDays;
+      break;
+    case "6month":
+      ttlDays = sixMonthDays;
+      break;
+    case "lifetime":
+      ttlDays = lifetimeDays;
+      break;
+    case "month":
+    default:
+      ttlDays = monthDays;
+      break;
+  }
+
+  if (!ttlDays || ttlDays <= 0) {
+    ttlDays = 30;
+  }
+
+  const nowMs        = Date.now();
+  const createdAtIso = new Date(nowMs).toISOString();
+  const expiresAfterMs = ttlDays * MS_PER_DAY;
+  const expiresAtMs    = nowMs + expiresAfterMs;
+  const expiresAtIso   = new Date(expiresAtMs).toISOString();
+
+  const token = generateRandomKeyToken(32);
+
+  const tierLabel =
+    planRaw === "lifetime"
+      ? "Paid Lifetime"
+      : planRaw === "6month"
+      ? "Paid 6 Month"
+      : planRaw === "3month"
+      ? "Paid 3 Month"
+      : "Paid Month";
+
+  const record = {
+    token,
+    key: token,
+    free: false,
+    paid: true,
+    valid: true,
+    deleted: false,
+    type: planRaw,
+    tier: tierLabel,
+    plan: planRaw,
+    discordId,
+    ownerDiscordId: discordId,
+    provider: "admin-dashboard",
+    source: "admin-dashboard",
+    createdAt: createdAtIso,
+    createdAtMs: nowMs,
+    expiresAt: expiresAtIso,
+    expiresAtMs,
+    expiresAfterMs
+  };
+
+  if (kvClient) {
+    // Simpan di upstash Paid Token
+    const paidTokenKey = PAID_TOKEN_PREFIX + token;
+    await setKv(kvClient, paidTokenKey, record);
+
+    // Update index user → daftar token paid
+    const paidUserIdxKey = PAID_USER_INDEX_PREFIX + discordId;
+    let tokens = await getKv(kvClient, paidUserIdxKey);
+    if (!Array.isArray(tokens)) tokens = [];
+    if (!tokens.includes(token)) {
+      tokens.push(token);
+    }
+    await setKv(kvClient, paidUserIdxKey, tokens);
+
+    logger.log(
+      `[serverv3] generatePaidKeyForDiscordUser KV ok. discordId=${discordId}, plan=${planRaw}, token=${token}`
+    );
+  } else {
+    // Fallback: simpan di redeemed-keys.json lokal (store lama)
+    let redeemedKeys = await loadStore({
+      kvClient: null,
+      kvKey: KV_REDEEMED_KEYS_KEY,
+      filePath: FILE_REDEEMED_KEYS,
+      defaultValue: []
+    });
+    if (!Array.isArray(redeemedKeys)) redeemedKeys = [];
+
+    redeemedKeys.push({
+      ...record,
+      store: "local-redeemed",
+      legacy: true
+    });
+
+    await saveStore({
+      kvClient: null,
+      kvKey: KV_REDEEMED_KEYS_KEY,
+      filePath: FILE_REDEEMED_KEYS,
+      value: redeemedKeys
+    });
+
+    logger.log(
+      `[serverv3] generatePaidKeyForDiscordUser fallback file. discordId=${discordId}, plan=${planRaw}, token=${token}`
+    );
+  }
+
+  return {
+    discordId,
+    token,
+    plan: planRaw,
+    expiresAtMs,
+    expiresAtIso,
+    record
+  };
 }
 
 //==========================================================
@@ -338,7 +600,6 @@ async function deleteDiscordUserData(opts) {
             removedFreeKeys++;
           }
         }
-        // kosongkan index user → supaya dashboard tidak baca lagi
         await setKv(kvClient, freeIdxKey, []);
       }
     } catch (err) {
@@ -385,7 +646,6 @@ async function deleteDiscordUserData(opts) {
           const entryKey = EXEC_USER_ENTRY_PREFIX + entryId;
           const entry = await getKv(kvClient, entryKey);
           if (!entry) {
-            // entry kosong, bersihkan dari index
             await sremKv(kvClient, EXEC_USERS_INDEX_KEY, entryId);
             continue;
           }
@@ -441,7 +701,7 @@ async function deleteDiscordUserData(opts) {
 
   // -------------------------------------------------------
   // 5) Simpan kembali store lama (redeemed/deleted/exec/discord-users)
-// -------------------------------------------------------
+  // -------------------------------------------------------
 
   await saveStore({
     kvClient,
@@ -492,7 +752,10 @@ async function deleteDiscordUserData(opts) {
 //==========================================================
 
 /**
- * Register route bulk delete Discord users ke Express app.
+ * Register route admin Discord tambahan ke Express app.
+ * Meliputi:
+ *  - POST /admin/discord/bulk-delete-users
+ *  - POST /admin/discord/generate-paid-key
  *
  * @param {import('express').Express} app
  * @param {Object} [options]
@@ -513,10 +776,7 @@ function registerDiscordBulkDeleteRoutes(app, options = {}) {
   // app.use(express.urlencoded({ extended: true }));
   // app.use(express.json());
 
-  // Route untuk handle form checkbox di admin-dashboarddiscord.ejs
-  // Method: POST
-  // Path:   /admin/discord/bulk-delete-users
-  // Body:   discordIds (bisa string atau array)
+  // Route: bulk delete Discord users (checkbox di admin-dashboarddiscord.ejs)
   app.post("/admin/discord/bulk-delete-users", requireAdmin, async (req, res) => {
     try {
       let discordIds =
@@ -590,6 +850,44 @@ function registerDiscordBulkDeleteRoutes(app, options = {}) {
         .send("Error while bulk deleting Discord users. Check server logs.");
     }
   });
+
+  // Route: generate PAID key (Month, 3 Month, 6 Month, Lifetime) per Discord user.
+  // Dipanggil dari tombol:
+  //   action="/admin/discord/generate-paid-key" method="POST"
+  //   body: { discordId, plan } di admin-dashboarddiscord.ejs
+  app.post("/admin/discord/generate-paid-key", requireAdmin, async (req, res) => {
+    try {
+      const discordId = String(req.body.discordId || "").trim();
+      let plan        = String(req.body.plan || "month").toLowerCase().trim();
+
+      if (!discordId) {
+        return res.redirect("/admin/discord?msg=MissingDiscordId");
+      }
+
+      const result = await generatePaidKeyForDiscordUser({
+        discordId,
+        plan,
+        kvClient,
+        logger
+      });
+
+      const params = new URLSearchParams();
+      params.set("user", discordId);
+      params.set("generated", "1");
+      params.set("generatedPlan", result.plan);
+      params.set("generatedToken", result.token);
+
+      // Jika kamu ingin melanjutkan query lain (filter, page, dsb),
+      // bisa tambahkan di sini dengan params.set(...)
+
+      return res.redirect("/admin/discord?" + params.toString());
+    } catch (err) {
+      logger.error("[serverv3] generate-paid-key error:", err);
+      return res
+        .status(500)
+        .send("Error while generating paid key. Check server logs.");
+    }
+  });
 }
 
 //==========================================================
@@ -598,5 +896,6 @@ function registerDiscordBulkDeleteRoutes(app, options = {}) {
 
 module.exports = {
   registerDiscordBulkDeleteRoutes,
-  deleteDiscordUserData
+  deleteDiscordUserData,
+  generatePaidKeyForDiscordUser
 };
