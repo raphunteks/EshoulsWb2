@@ -242,6 +242,12 @@
               <option value="hasKeys" <%= f === 'hasKeys' ? 'selected' : '' %>>
                 Hanya yang punya key
               </option>
+
+              <!-- NEW: hanya user yang punya minimal 1 Paid key -->
+              <option value="paidOnly" <%= f === 'paidOnly' ? 'selected' : '' %>>
+                Paid key saja
+              </option>
+
               <option value="noKeys" <%= f === 'noKeys' ? 'selected' : '' %>>
                 Tanpa key
               </option>
@@ -1733,6 +1739,7 @@
 
         checkboxes.forEach(function (cb) {
           cb.addEventListener('change', function () {
+            // sinkronisasi state select all
             if (selectAll) {
               var allChecked = true;
               var anyChecked = false;
