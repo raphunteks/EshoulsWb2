@@ -305,6 +305,16 @@
             ? paidPlan.lifetimeDays
             : 365;
 
+        // NEW: 3 MONTH & 6 MONTH DURASI
+        var paidThreeMonthDaysVal =
+          (typeof paidPlan.threeMonthDays !== 'undefined' && paidPlan.threeMonthDays != null)
+            ? paidPlan.threeMonthDays
+            : paidMonthDaysVal * 3;
+        var paidSixMonthDaysVal =
+          (typeof paidPlan.sixMonthDays !== 'undefined' && paidPlan.sixMonthDays != null)
+            ? paidPlan.sixMonthDays
+            : paidMonthDaysVal * 6;
+
         var defaultHeroSubtitle =
           fkGlobal.dashboardCaption ||
           'Complete a quick verification to get your ExHub key and start using our scripts.';
@@ -344,7 +354,7 @@
                 <code>/getfreekey?ads=workink</code> dan
                 <code>/getfreekey?ads=linkvertise</code>, serta durasi default
                 <strong>Free Key</strong> (jam) dan
-                <strong>Paid Key</strong> (Month / Lifetime, dalam hari).
+                <strong>Paid Key</strong> (Month / 3 Month / 6 Month / Lifetime, dalam hari).
                 Nilai ini dibaca oleh <code>serverv2.js</code> untuk render UI dan
                 logika <em>expiresAfter</em> / renew.
               </p>
@@ -477,6 +487,44 @@
                   />
                   <div class="table-sub-text">
                     Dipakai sebagai durasi ketika admin / bot melakukan renew key bertipe <code>month</code>.
+                  </div>
+                </div>
+
+                <!-- NEW: 3 MONTH -->
+                <div class="admin-key-field" style="margin-top:10px;">
+                  <div class="table-sub-text">
+                    Paid Key – 3 Month (hari)
+                  </div>
+                  <input
+                    type="number"
+                    name="paidThreeMonthDays"
+                    class="key-input key-input-sm"
+                    min="1"
+                    max="2190"
+                    value="<%= paidThreeMonthDaysVal %>"
+                    autocomplete="off"
+                  />
+                  <div class="table-sub-text">
+                    Dipakai untuk plan <code>3month</code> (umumnya 3 × Month).
+                  </div>
+                </div>
+
+                <!-- NEW: 6 MONTH -->
+                <div class="admin-key-field" style="margin-top:10px;">
+                  <div class="table-sub-text">
+                    Paid Key – 6 Month (hari)
+                  </div>
+                  <input
+                    type="number"
+                    name="paidSixMonthDays"
+                    class="key-input key-input-sm"
+                    min="1"
+                    max="3650"
+                    value="<%= paidSixMonthDaysVal %>"
+                    autocomplete="off"
+                  />
+                  <div class="table-sub-text">
+                    Dipakai untuk plan <code>6month</code> (umumnya 6 × Month).
                   </div>
                 </div>
 
@@ -719,6 +767,26 @@
                           >
                             Manage
                           </a>
+
+                          <% if (row.paidKeys && row.paidKeys > 0) { %>
+                            <!-- QUICK PAID BUTTON UNTUK USER YANG SUDAH PERNAH PAID -->
+                            <form
+                              action="/admin/discord/generate-paid-key"
+                              method="POST"
+                              class="admin-inline-form"
+                              style="margin-top:4px;"
+                              onsubmit="return confirm('Generate PAID MONTH key baru untuk user ini?');"
+                            >
+                              <input type="hidden" name="discordId" value="<%= row.discordId %>" />
+                              <input type="hidden" name="plan" value="month" />
+                              <button
+                                type="submit"
+                                class="key-btn key-btn-xs key-btn-ghost"
+                              >
+                                Paid Month
+                              </button>
+                            </form>
+                          <% } %>
                         </td>
                       </tr>
                     <% }); %>
@@ -900,9 +968,19 @@
               </p>
 
               <% if (typeof generated !== 'undefined' && generated && generatedToken && selectedUser && selectedUser.discordId) { %>
+                <%
+                  var generatedPlanLabel = 'Month';
+                  if (generatedPlan === 'lifetime') {
+                    generatedPlanLabel = 'Lifetime';
+                  } else if (generatedPlan === '3month') {
+                    generatedPlanLabel = '3 Month';
+                  } else if (generatedPlan === '6month') {
+                    generatedPlanLabel = '6 Month';
+                  }
+                %>
                 <p class="card-description small">
                   Paid key
-                  <strong><%= (generatedPlan === 'lifetime' ? 'Lifetime' : 'Month') %></strong>
+                  <strong><%= generatedPlanLabel %></strong>
                   berhasil dibuat untuk user ini:
                   <span class="mono"><%= generatedToken %></span>
                 </p>
@@ -975,6 +1053,34 @@
                   <input type="hidden" name="plan" value="month" />
                   <button type="submit" class="key-btn key-btn-xs key-btn-primary">
                     Generate Key Month
+                  </button>
+                </form>
+
+                <!-- GENERATE PAID KEY: 3 MONTH -->
+                <form
+                  action="/admin/discord/generate-paid-key"
+                  method="POST"
+                  class="admin-inline-form"
+                  onsubmit="return confirm('Generate PAID 3 MONTH key untuk user ini?');"
+                >
+                  <input type="hidden" name="discordId" value="<%= selectedUser.discordId %>" />
+                  <input type="hidden" name="plan" value="3month" />
+                  <button type="submit" class="key-btn key-btn-xs key-btn-primary">
+                    Generate Key 3 Month
+                  </button>
+                </form>
+
+                <!-- GENERATE PAID KEY: 6 MONTH -->
+                <form
+                  action="/admin/discord/generate-paid-key"
+                  method="POST"
+                  class="admin-inline-form"
+                  onsubmit="return confirm('Generate PAID 6 MONTH key untuk user ini?');"
+                >
+                  <input type="hidden" name="discordId" value="<%= selectedUser.discordId %>" />
+                  <input type="hidden" name="plan" value="6month" />
+                  <button type="submit" class="key-btn key-btn-xs key-btn-primary">
+                    Generate Key 6 Month
                   </button>
                 </form>
 
@@ -1627,7 +1733,6 @@
 
         checkboxes.forEach(function (cb) {
           cb.addEventListener('change', function () {
-            // sinkronisasi state select all
             if (selectAll) {
               var allChecked = true;
               var anyChecked = false;
