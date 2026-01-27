@@ -3,10 +3,8 @@
 
 const crypto = require("crypto");
 
-// Optional: mount serverv3.js if available
 let mountServerV3 = null;
 try {
-  // serverv3.js di root folder yang sama
   mountServerV3 = require("./serverv3");
 } catch (err) {
   console.warn(
@@ -15,7 +13,6 @@ try {
   );
 }
 
-// ---------- Helper: Base API & Redirect Discord ----------
 function resolveExHubApiBase() {
   const SITE_BASE = process.env.EXHUB_SITE_BASE || "https://exc-webs.vercel.app";
   let base = process.env.EXHUB_API_BASE;
@@ -38,7 +35,6 @@ function resolveDiscordRedirectUri() {
   return "http://localhost:3000/auth/discord/callback";
 }
 
-// ---------- Upstash KV ----------
 const KV_REST_API_URL = process.env.KV_REST_API_URL;
 const KV_REST_API_TOKEN = process.env.KV_REST_API_TOKEN;
 const hasFreeKeyKV = !!(KV_REST_API_URL && KV_REST_API_TOKEN);
@@ -92,7 +88,6 @@ async function kvSetJson(key, value) {
   await kvRequest(kvPath("SET", key, raw));
 }
 
-// ---------- Time Utils ----------
 function nowMs() {
   return Date.now();
 }
@@ -175,7 +170,6 @@ function parseHHMMSS(value) {
   return totalSeconds * 1000;
 }
 
-// ---------- Roblox Identity ----------
 function extractRobloxIdentity(req) {
   const q = req.query || {};
   const robloxUserId =
@@ -217,7 +211,6 @@ function extractRobloxIdentity(req) {
   return { robloxUserId, robloxUsername, robloxDisplayName, robloxHWID };
 }
 
-// ---------- Global Key Config ----------
 const FREE_KEY_UI_CONFIG_KEY = "exhub:freekey:ui-config";
 const PAID_PLAN_CONFIG_KEY = "exhub:paidplan:config";
 
@@ -330,7 +323,6 @@ async function getPaidDurationsMs() {
   };
 }
 
-// ---------- Free Key ----------
 const FREE_KEY_PREFIX = "EXHUBFREE";
 const FREE_KEY_TTL_HOURS = FREE_KEY_TTL_DEFAULT_HOURS;
 const FREE_KEY_MAX_PER_USER = 5;
@@ -498,7 +490,6 @@ async function getFreeKeysForUserPersistent(userId) {
   return result;
 }
 
-// ---------- Paid Key ----------
 const PAID_KEY_PREFIX = "EXHUBPAID";
 
 function paidTokenKey(token) {
@@ -732,7 +723,6 @@ async function getPaidKeysForUserPersistent(discordId) {
   return result;
 }
 
-// ---------- Binding Roblox (Generic Helpers) ----------
 async function bindKeyToRobloxFree(rec, token, identity) {
   if (!rec) {
     return { rec: null, allowed: false, bound: false, reason: "NO_RECORD" };
@@ -977,7 +967,6 @@ async function bindKeyToRobloxPaid(rec, identity) {
   };
 }
 
-// ---------- Discord Profile / Index ----------
 async function addDiscordUserToIndex(discordId) {
   if (!hasFreeKeyKV) return;
   const key = discordUserIndexKey();
@@ -1052,7 +1041,6 @@ function makeDiscordBannerUrl(profile) {
   return null;
 }
 
-// ---------- Exec Tracking ----------
 async function kvExecGetRaw(key) {
   return kvRequest(kvPath("GET", key));
 }
@@ -1271,7 +1259,6 @@ async function getExecIndexByTokenCached() {
   return cachedExecIndexByToken;
 }
 
-// ---------- Admin Normalizers ----------
 function normalizePaidKeyForAdmin(k, fallbackDiscordId) {
   if (!k) return null;
   const token = String(k.token || k.key || "");
@@ -1409,7 +1396,6 @@ function normalizeFreeKeyForAdmin(fk, discordId) {
   };
 }
 
-// ---------- Ads Session Helpers ----------
 function canonicalAdsProvider(raw) {
   const v = String(raw || "").toLowerCase();
   if (v === "linkvertise" || v === "linkvertise.com") return "linkvertise";
@@ -1447,7 +1433,6 @@ function markAdsUsed(req, provider) {
   req.session.freeKeyAdsState[provider] = prev;
 }
 
-// ---------- HWID Reset (Shared) ----------
 async function resetPaidKeyHwid(token) {
   const now = nowMs();
   const paidRecRaw = await kvGetJson(paidTokenKey(token));
@@ -1494,9 +1479,6 @@ async function resetFreeKeyHwid(token) {
   return { previousHwid, rec: freeRecRaw };
 }
 
-// =====================================================
-// MOUNT MODULE
-// =====================================================
 function mountDiscordOAuth(app) {
   const DISCORD_CLIENT_ID =
     (process.env.DISCORD_CLIENT_ID || process.env.CLIENT_ID || "").trim() ||
@@ -1711,7 +1693,6 @@ function mountDiscordOAuth(app) {
     }
   }
 
-  // ---------- ROUTES: PUBLIC ----------
   app.get("/discord-login", (req, res) => {
     const already = req.session && req.session.discordUser;
     if (already) return res.redirect("/dashboard");
@@ -1726,7 +1707,6 @@ function mountDiscordOAuth(app) {
     res.render("login-required");
   });
 
-  // ---------- ROUTES: DASHBOARD ----------
   app.get("/dashboard", requireAuth, async (req, res) => {
     const discordUser = req.session.discordUser;
     const keyData = await getUserKeys(discordUser);
@@ -1738,7 +1718,6 @@ function mountDiscordOAuth(app) {
     res.redirect("/getfreekey?ads=" + encodeURIComponent(ads));
   });
 
-  // GET /getfreekey
   app.get("/getfreekey", requireAuth, async (req, res) => {
     const discordUser = req.session.discordUser;
     const userId = discordUser.id;
@@ -1817,7 +1796,6 @@ function mountDiscordOAuth(app) {
     });
   });
 
-  // POST /getfreekey/generate
   app.post("/getfreekey/generate", requireAuth, async (req, res) => {
     const discordUser = req.session.discordUser;
     const userId = discordUser.id;
@@ -1881,7 +1859,6 @@ function mountDiscordOAuth(app) {
     }
   });
 
-  // POST /getfreekey/extend
   app.post("/getfreekey/extend", requireAuth, async (req, res) => {
     const discordUser = req.session.discordUser;
     const userId = discordUser.id;
@@ -1946,7 +1923,6 @@ function mountDiscordOAuth(app) {
     }
   });
 
-  // ---------- API FreeKey Validation ----------
   app.get("/api/freekey/isValidate/:key", async (req, res) => {
     const token = (req.params.key || "").trim();
     const now = nowMs();
@@ -2064,7 +2040,6 @@ function mountDiscordOAuth(app) {
     });
   });
 
-  // API: POST /api/freekey/delete/:key
   app.post("/api/freekey/delete/:key", requireAuth, async (req, res) => {
     const discordUser = req.session.discordUser;
     const userId = discordUser.id;
@@ -2089,7 +2064,6 @@ function mountDiscordOAuth(app) {
     }
   });
 
-  // API: POST /api/paidkey/createOrUpdate
   app.post("/api/paidkey/createOrUpdate", async (req, res) => {
     if (!hasFreeKeyKV) {
       return res.status(500).json({ ok: false, error: "KV_NOT_CONFIGURED" });
@@ -2135,7 +2109,6 @@ function mountDiscordOAuth(app) {
     }
   });
 
-  // API: GET /api/paidkey/isValidate/:key
   app.get("/api/paidkey/isValidate/:key", async (req, res) => {
     const token = (req.params.key || "").trim();
     const now = nowMs();
@@ -2266,7 +2239,6 @@ function mountDiscordOAuth(app) {
     }
   });
 
-  // API: POST /api/paidfree/user-info
   app.post("/api/paidfree/user-info", async (req, res) => {
     const body = req.body || {};
     const rawId =
@@ -2451,7 +2423,6 @@ function mountDiscordOAuth(app) {
     res.json({ ownerIds: OWNER_IDS });
   });
 
-  // SHARED: self reset HWID (bot/client)
   async function handleSelfResetHwid(req, res) {
     if (!hasFreeKeyKV) {
       return res.status(500).json({
@@ -2602,9 +2573,6 @@ function mountDiscordOAuth(app) {
   app.post("/api/paidfree/reset-hwid", handleSelfResetHwid);
   app.post("/api/paidkey/reset-hwid", handleSelfResetHwid);
 
-  // =====================================================
-  // ADMIN /admin/discord
-  // =====================================================
   app.get("/admin/discord", requireAdmin, async (req, res) => {
     const query = (req.query.q || "").trim();
     const filter = req.query.filter || "all";
@@ -2842,6 +2810,8 @@ function mountDiscordOAuth(app) {
       userStats = userStats.filter((u) => (u.totalKeys || 0) > 0);
     } else if (filter === "noKeys") {
       userStats = userStats.filter((u) => (u.totalKeys || 0) === 0);
+    } else if (filter === "paidOnly") {
+      userStats = userStats.filter((u) => (u.paidKeys || 0) > 0);
     } else if (filter === "banned") {
       userStats = userStats.filter((u) => !!u.banned);
     } else if (filter === "notBanned") {
@@ -2937,7 +2907,6 @@ function mountDiscordOAuth(app) {
     });
   });
 
-  // Admin: save global key config
   app.post(
     "/admin/discord/save-global-key-config",
     requireAdmin,
@@ -3058,7 +3027,6 @@ function mountDiscordOAuth(app) {
     }
   );
 
-  // Admin: generate paid key (month/lifetime)
   app.post(
     "/admin/discord/generate-paid-key",
     requireAdmin,
@@ -3395,7 +3363,6 @@ function mountDiscordOAuth(app) {
     res.redirect(redirectUrl);
   });
 
-  // ADMIN: reset HWID (panel)
   async function adminResetHwidInternal(discordId, token, tierRaw) {
     const now = nowMs();
     let didReset = false;
@@ -3529,7 +3496,6 @@ function mountDiscordOAuth(app) {
     }
   );
 
-  // ---------- DISCORD OAUTH2 ----------
   app.get("/auth/discord", (req, res) => {
     const state = crypto.randomBytes(16).toString("hex");
     if (req.session) {
@@ -3689,7 +3655,6 @@ function mountDiscordOAuth(app) {
     res.redirect("/");
   });
 
-  // ---------- META: backend version info ----------
   app.get("/api/meta/backends", (req, res) => {
     res.json({
       v2: true,
@@ -3698,7 +3663,6 @@ function mountDiscordOAuth(app) {
     });
   });
 
-  // ---------- INTEGRASI serverv3.js ----------
   if (mountServerV3 && typeof mountServerV3 === "function") {
     const sharedCore = {
       nowMs,
@@ -3739,12 +3703,10 @@ function mountDiscordOAuth(app) {
       );
     }
 
-    // expose core juga via export (kalau serverv3 import balik)
     mountDiscordOAuth.core = sharedCore;
   }
 
   console.log("[serverv2] serverv2 routes mounted (Discord OAuth + Dashboard + Free/Paid Key API + Admin).");
 }
 
-// export utama
 module.exports = mountDiscordOAuth;
