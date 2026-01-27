@@ -1272,9 +1272,41 @@
                       </thead>
                       <tbody>
                         <% selectedUserKeys.forEach(function(k) { %>
+                          <%
+                            // Normalisasi label provider/tier untuk dipakai di beberapa kolom
+                            var isFreeKey = !!k.free;
+                            var planVal = ((k.plan || k.type || '') + '').toLowerCase();
+                            var rawTierLabel = k.tierLabel || k.provider || '';
+                            var providerDisplay;
+
+                            if (isFreeKey) {
+                              providerDisplay = k.provider || k.source || 'Free';
+                            } else {
+                              if (rawTierLabel && !/^exhub paid/i.test(rawTierLabel)) {
+                                providerDisplay = rawTierLabel;
+                              } else {
+                                if (planVal === 'lifetime') {
+                                  providerDisplay = 'PAID LIFETIME';
+                                } else if (planVal === '6month' || planVal === '6-month') {
+                                  providerDisplay = 'PAID 6 MONTH';
+                                } else if (planVal === '3month' || planVal === '3-month') {
+                                  providerDisplay = 'PAID 3 MONTH';
+                                } else {
+                                  providerDisplay = 'PAID MONTH';
+                                }
+                              }
+                            }
+
+                            var tierMainLabel;
+                            if (isFreeKey) {
+                              tierMainLabel = k.tier || k.type || 'Free';
+                            } else {
+                              tierMainLabel = providerDisplay || k.tier || k.type || 'Paid';
+                            }
+                          %>
                           <tr
                             id="discord-<%= encodeURIComponent(selectedUser.discordId) %>-token-<%= encodeURIComponent(k.token || k.key) %>"
-                            data-key-tier="<%= k.free ? 'free' : 'paid' %>"
+                            data-key-tier="<%= isFreeKey ? 'free' : 'paid' %>"
                           >
                             <!-- TOKEN -->
                             <td class="key-cell-token">
@@ -1282,19 +1314,17 @@
                                 <span class="key-token mono"><%= k.token || k.key %></span>
                               </div>
                               <div class="table-sub-text">
-                                <%= k.provider || k.source || (k.free ? 'Free' : 'Paid') %>
+                                <%= providerDisplay %>
                               </div>
                             </td>
 
                             <!-- TIER / TYPE -->
                             <td class="table-main-text">
                               <div class="key-tier-label">
-                                <strong>
-                                  <%= (k.tier || k.type || (k.free ? 'Free' : 'Paid')) %>
-                                </strong>
+                                <strong><%= tierMainLabel %></strong>
                               </div>
                               <div class="table-sub-text">
-                                <% if (k.free) { %>
+                                <% if (isFreeKey) { %>
                                   Free key
                                 <% } else { %>
                                   Paid key
@@ -1539,13 +1569,36 @@
                     <% selectedUserKeys.forEach(function(k) { 
                          var es = k.execStats || {};
                          var maps = Array.isArray(es.allMapList) ? es.allMapList : [];
+
+                         var isFreeKey = !!k.free;
+                         var planVal = ((k.plan || k.type || '') + '').toLowerCase();
+                         var rawTierLabel = k.tierLabel || k.provider || '';
+                         var providerDisplayExec;
+
+                         if (isFreeKey) {
+                           providerDisplayExec = k.provider || k.source || 'Free';
+                         } else {
+                           if (rawTierLabel && !/^exhub paid/i.test(rawTierLabel)) {
+                             providerDisplayExec = rawTierLabel;
+                           } else {
+                             if (planVal === 'lifetime') {
+                               providerDisplayExec = 'PAID LIFETIME';
+                             } else if (planVal === '6month' || planVal === '6-month') {
+                               providerDisplayExec = 'PAID 6 MONTH';
+                             } else if (planVal === '3month' || planVal === '3-month') {
+                               providerDisplayExec = 'PAID 3 MONTH';
+                             } else {
+                               providerDisplayExec = 'PAID MONTH';
+                             }
+                           }
+                         }
                     %>
                       <tr>
                         <!-- KEY TOKEN -->
                         <td class="table-main-text">
                           <div class="mono"><strong><%= k.token || k.key %></strong></div>
                           <div class="table-sub-text">
-                            <%= k.provider || k.source || (k.free ? 'Free' : 'Paid') %>
+                            <%= providerDisplayExec %>
                           </div>
                         </td>
 
