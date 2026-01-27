@@ -2,7 +2,11 @@
 //  serverv3.js
 //  Modul tambahan untuk Admin Discord:
 //  - Bulk delete per Discord user (by discordId)
-//  - Menghapus: key (redeemed → deleted), exec-users, profil Discord
+//  - Menghapus:
+//      • Keys di store lama (redeemed-keys → deleted-keys)
+//      • Keys di store baru (Free/Paid key per Discord user)
+//      • Data exec (legacy exec-users + exec-users:index + exec-user:<id>)
+//      • Profil Discord (lama: exhub:discord-users, baru: exhub:discord:userprofile + index)
 //==========================================================
 
 "use strict";
@@ -12,11 +16,10 @@ const path = require("path");
 
 // =======================================
 //  Upstash KV client (defaultKv)
+//  (pakai @vercel/kv jika tersedia)
 // =======================================
 let defaultKv = null;
 try {
-  // Sesuaikan dengan cara kamu import Upstash di server utama.
-  // Di Vercel umumnya: const { kv } = require("@vercel/kv")
   const kvModule = require("@vercel/kv");
   defaultKv = kvModule.kv || kvModule.default || null;
   if (!defaultKv) {
@@ -36,17 +39,34 @@ const DATA_DIR = path.join(__dirname, "data");
 const FILE_REDEEMED_KEYS = path.join(DATA_DIR, "redeemed-keys.json");
 const FILE_DELETED_KEYS  = path.join(DATA_DIR, "deleted-keys.json");
 const FILE_EXEC_USERS    = path.join(DATA_DIR, "exec-users.json");
-const FILE_DISCORD_USERS = path.join(DATA_DIR, "discord-users.json"); // sesuaikan
+const FILE_DISCORD_USERS = path.join(DATA_DIR, "discord-users.json");
 
-// Nama key di Upstash KV (samakan dengan yang kamu pakai sekarang)
+// Nama key di Upstash KV (store lama)
 const KV_REDEEMED_KEYS_KEY = "exhub:redeemed-keys";
 const KV_DELETED_KEYS_KEY  = "exhub:deleted-keys";
 const KV_EXEC_USERS_KEY    = "exhub:exec-users";
-const KV_DISCORD_USERS_KEY = "exhub:discord-users"; // ganti kalau di project kamu pakai "exhub:discord:users"
+const KV_DISCORD_USERS_KEY = "exhub:discord-users"; // jika di project pakai "exhub:discord:users", ganti sesuai
+
+// Nama key di Upstash KV (store baru, sinkron dengan serverv2.js)
+const FREE_USER_INDEX_PREFIX  = "exhub:freekey:user:";      // + <discordId>  → [token, ...]
+const FREE_TOKEN_PREFIX       = "exhub:freekey:token:";     // + <token>      → rec free key
+
+const PAID_USER_INDEX_PREFIX  = "exhub:paidkey:user:";      // + <discordId>  → [token, ...]
+const PAID_TOKEN_PREFIX       = "exhub:paidkey:token:";     // + <token>      → rec paid key
+
+const EXEC_USERS_INDEX_KEY    = "exhub:exec-users:index";   // Set entryId
+const EXEC_USER_ENTRY_PREFIX  = "exhub:exec-user:";         // + <entryId> → exec entry
+
+const DISCORD_USER_PROFILE_PREFIX = "exhub:discord:userprofile:"; // + <discordId>
+const DISCORD_USER_INDEX_KEY      = "exhub:discord:userindex";    // [discordId, ...]
 
 //==========================================================
-//  Helper: baca / tulis JSON lokal (fallback)
+//  Helper: waktu + util kecil
 //==========================================================
+
+function nowIso() {
+  return new Date().toISOString();
+}
 
 function ensureDataDir() {
   if (!fs.existsSync(DATA_DIR)) {
@@ -113,20 +133,83 @@ async function saveStore({ kvClient, kvKey, filePath, value }) {
 }
 
 //==========================================================
+//  Helper: operasi KV modern (Free/Paid/Exec/Discord profile)
+//==========================================================
+
+async function getKv(kvClient, key) {
+  if (!kvClient) return null;
+  try {
+    return await kvClient.get(key);
+  } catch (err) {
+    console.error("[serverv3] KV get error:", key, err);
+    return null;
+  }
+}
+
+async function setKv(kvClient, key, value) {
+  if (!kvClient) return;
+  try {
+    await kvClient.set(key, value);
+  } catch (err) {
+    console.error("[serverv3] KV set error:", key, err);
+  }
+}
+
+async function delKv(kvClient, key) {
+  if (!kvClient || !kvClient.del) return;
+  try {
+    await kvClient.del(key);
+  } catch (err) {
+    console.error("[serverv3] KV del error:", key, err);
+  }
+}
+
+async function smembersKv(kvClient, key) {
+  if (!kvClient || typeof kvClient.smembers !== "function") return [];
+  try {
+    const res = await kvClient.smembers(key);
+    return Array.isArray(res) ? res : [];
+  } catch (err) {
+    console.error("[serverv3] KV smembers error:", key, err);
+    return [];
+  }
+}
+
+async function sremKv(kvClient, key, member) {
+  if (!kvClient || typeof kvClient.srem !== "function") return;
+  try {
+    await kvClient.srem(key, member);
+  } catch (err) {
+    console.error("[serverv3] KV srem error:", key, member, err);
+  }
+}
+
+//==========================================================
 //  Core: hapus semua data milik 1 discordId
 //==========================================================
 
 /**
  * Menghapus semua data milik 1 Discord user:
- * - Keys di redeemed-keys (dipindah ke deleted-keys dengan metadata alasan).
- * - Data exec di exec-users untuk setiap key token.
- * - Profil Discord user di discord-users.
+ * - Store lama:
+ *   • Keys di redeemed-keys → dipindah ke deleted-keys (dengan metadata deleteReason).
+ *   • Exec di exec-users (object lokal) untuk setiap key token.
+ *   • Profil di discord-users.
+ * - Store baru (sinkron serverv2):
+ *   • Free key di exhub:freekey:user:<discordId> + exhub:freekey:token:<token>.
+ *   • Paid key di exhub:paidkey:user:<discordId> + exhub:paidkey:token:<token>.
+ *   • Exec index di exhub:exec-users:index + exhub:exec-user:<entryId>.
+ *   • Profil Discord di exhub:discord:userprofile:<id> + exhub:discord:userindex.
  *
  * @param {Object} opts
  * @param {string} opts.discordId
- * @param {Object} opts.kvClient
+ * @param {Object} [opts.kvClient]
  * @param {Function} [opts.logger]
- * @returns {Promise<{discordId: string, removedKeys: number, removedExecEntries: number, removedProfile: boolean}>}
+ * @returns {Promise<{
+ *   discordId: string,
+ *   removedKeys: number,
+ *   removedExecEntries: number,
+ *   removedProfile: boolean
+ * }>}
  */
 async function deleteDiscordUserData(opts) {
   const discordId = String(opts.discordId || "").trim();
@@ -139,7 +222,13 @@ async function deleteDiscordUserData(opts) {
 
   logger.log(`[serverv3] Delete data untuk Discord ID: ${discordId}`);
 
-  // 1) Load store utama
+  const nowIsoStr = nowIso();
+  const tokensSet = new Set();
+
+  // -------------------------------------------------------
+  // 1) Store lama: redeemed-keys / deleted-keys / exec-users / discord-users
+  // -------------------------------------------------------
+
   let redeemedKeys = await loadStore({
     kvClient,
     kvKey: KV_REDEEMED_KEYS_KEY,
@@ -176,30 +265,27 @@ async function deleteDiscordUserData(opts) {
   });
   if (!discordUsers || typeof discordUsers !== "object") discordUsers = {};
 
-  // 2) Filter redeemed-keys dan kumpulkan token yang akan dihapus
-  const nowIso = new Date().toISOString();
-
   const keysToKeep   = [];
-  const keysToDelete = [];
+  const keysToDeleteLegacy = [];
 
   for (const item of redeemedKeys) {
     if (!item) continue;
     const itemDiscordId = String(item.discordId || "").trim();
     if (itemDiscordId === discordId) {
-      keysToDelete.push(item);
+      keysToDeleteLegacy.push(item);
+      const t = String(item.token || item.key || "").trim();
+      if (t) tokensSet.add(t);
     } else {
       keysToKeep.push(item);
     }
   }
 
-  // 3) Update redeemed-keys (hapus key milik user ini)
   redeemedKeys = keysToKeep;
 
-  // 4) Tambahkan ke deleted-keys dengan metadata alasan penghapusan
-  if (keysToDelete.length > 0) {
-    const mappedDeleted = keysToDelete.map((item) => {
+  if (keysToDeleteLegacy.length > 0) {
+    const mappedDeleted = keysToDeleteLegacy.map((item) => {
       const copy = Object.assign({}, item);
-      copy.deletedAt         = nowIso;
+      copy.deletedAt         = nowIsoStr;
       copy.deleteReason      = "discord-user-delete";
       copy.deleteByDiscordId = discordId;
       return copy;
@@ -207,25 +293,156 @@ async function deleteDiscordUserData(opts) {
     deletedKeys = deletedKeys.concat(mappedDeleted);
   }
 
-  // 5) Hapus entry exec-users per key token pengguna ini
+  // Hapus exec-users legacy berdasarkan token yang sudah terkumpul
   let removedExecEntries = 0;
-  for (const item of keysToDelete) {
-    const token = String(item.token || item.key || "").trim();
-    if (!token) continue;
+  for (const token of tokensSet) {
     if (execUsers[token]) {
       delete execUsers[token];
       removedExecEntries++;
     }
   }
 
-  // 6) Hapus profil Discord user
+  // Hapus profil Discord lama (discord-users)
   let removedProfile = false;
   if (discordUsers[discordId]) {
     delete discordUsers[discordId];
     removedProfile = true;
   }
 
-  // 7) Simpan kembali semua store
+  // -------------------------------------------------------
+  // 2) Store baru: Free/Paid key per Discord user
+  // -------------------------------------------------------
+
+  let removedFreeKeys = 0;
+  let removedPaidKeys = 0;
+
+  if (kvClient) {
+    // Free keys
+    try {
+      const freeIdxKey = FREE_USER_INDEX_PREFIX + discordId;
+      const freeTokens = await getKv(kvClient, freeIdxKey);
+      if (Array.isArray(freeTokens) && freeTokens.length > 0) {
+        for (const rawToken of freeTokens) {
+          const token = String(rawToken || "").trim();
+          if (!token) continue;
+          tokensSet.add(token);
+
+          const recKey = FREE_TOKEN_PREFIX + token;
+          const rec = await getKv(kvClient, recKey);
+          if (rec) {
+            rec.deleted = true;
+            rec.valid   = false;
+            rec.deletedAt = nowIsoStr;
+            rec.deletedByDiscordId = discordId;
+            await setKv(kvClient, recKey, rec);
+            removedFreeKeys++;
+          }
+        }
+        // kosongkan index user → supaya dashboard tidak baca lagi
+        await setKv(kvClient, freeIdxKey, []);
+      }
+    } catch (err) {
+      logger.error("[serverv3] error bulk delete free keys:", err);
+    }
+
+    // Paid keys
+    try {
+      const paidIdxKey = PAID_USER_INDEX_PREFIX + discordId;
+      const paidTokens = await getKv(kvClient, paidIdxKey);
+      if (Array.isArray(paidTokens) && paidTokens.length > 0) {
+        for (const rawToken of paidTokens) {
+          const token = String(rawToken || "").trim();
+          if (!token) continue;
+          tokensSet.add(token);
+
+          const recKey = PAID_TOKEN_PREFIX + token;
+          const rec = await getKv(kvClient, recKey);
+          if (rec) {
+            rec.deleted = true;
+            rec.valid   = false;
+            rec.deletedAt = nowIsoStr;
+            rec.deletedByDiscordId = discordId;
+            await setKv(kvClient, recKey, rec);
+            removedPaidKeys++;
+          }
+        }
+        await setKv(kvClient, paidIdxKey, []);
+      }
+    } catch (err) {
+      logger.error("[serverv3] error bulk delete paid keys:", err);
+    }
+  }
+
+  // -------------------------------------------------------
+  // 3) Exec index baru: exhub:exec-users:index + exhub:exec-user:<entryId>
+  // -------------------------------------------------------
+
+  if (kvClient) {
+    try {
+      const entryIds = await smembersKv(kvClient, EXEC_USERS_INDEX_KEY);
+      if (entryIds.length > 0) {
+        for (const entryId of entryIds) {
+          const entryKey = EXEC_USER_ENTRY_PREFIX + entryId;
+          const entry = await getKv(kvClient, entryKey);
+          if (!entry) {
+            // entry kosong, bersihkan dari index
+            await sremKv(kvClient, EXEC_USERS_INDEX_KEY, entryId);
+            continue;
+          }
+
+          const entryDiscordId = entry.discordId || entry.ownerDiscordId || null;
+          const entryToken = String(
+            entry.keyToken ||
+            entry.token   ||
+            entry.key     ||
+            entry.keyId   ||
+            ""
+          ).trim();
+
+          const matchDiscord = entryDiscordId && String(entryDiscordId) === discordId;
+          const matchToken   = entryToken && tokensSet.has(entryToken);
+
+          if (matchDiscord || matchToken) {
+            await delKv(kvClient, entryKey);
+            await sremKv(kvClient, EXEC_USERS_INDEX_KEY, entryId);
+            removedExecEntries++;
+          }
+        }
+      }
+    } catch (err) {
+      logger.error("[serverv3] error bulk delete exec index:", err);
+    }
+  }
+
+  // -------------------------------------------------------
+  // 4) Profil Discord baru: exhub:discord:userprofile + exhub:discord:userindex
+  // -------------------------------------------------------
+
+  if (kvClient) {
+    try {
+      const profileKey = DISCORD_USER_PROFILE_PREFIX + discordId;
+      const existingProfile = await getKv(kvClient, profileKey);
+      if (existingProfile) {
+        removedProfile = true;
+      }
+      await delKv(kvClient, profileKey);
+
+      const idxArr = await getKv(kvClient, DISCORD_USER_INDEX_KEY);
+      if (Array.isArray(idxArr)) {
+        const filtered = idxArr
+          .map((id) => String(id || "").trim())
+          .filter((id) => !!id && id !== discordId);
+        await setKv(kvClient, DISCORD_USER_INDEX_KEY, filtered);
+      }
+    } catch (err) {
+      logger.error("[serverv3] error cleanup discord user index/profile:", err);
+    }
+  }
+
+  // -------------------------------------------------------
+  // 5) Simpan kembali store lama (redeemed/deleted/exec/discord-users)
+// -------------------------------------------------------
+
   await saveStore({
     kvClient,
     kvKey: KV_REDEEMED_KEYS_KEY,
@@ -254,13 +471,17 @@ async function deleteDiscordUserData(opts) {
     value: discordUsers
   });
 
+  const removedKeysTotal = keysToDeleteLegacy.length + removedFreeKeys + removedPaidKeys;
+
   logger.log(
-    `[serverv3] Discord ID ${discordId} → removed keys=${keysToDelete.length}, execEntries=${removedExecEntries}, profileRemoved=${removedProfile}`
+    `[serverv3] Discord ID ${discordId} → removed keys=${removedKeysTotal} ` +
+    `(legacy=${keysToDeleteLegacy.length}, free=${removedFreeKeys}, paid=${removedPaidKeys}), ` +
+    `execEntries=${removedExecEntries}, profileRemoved=${removedProfile}`
   );
 
   return {
     discordId,
-    removedKeys: keysToDelete.length,
+    removedKeys: removedKeysTotal,
     removedExecEntries,
     removedProfile
   };
@@ -275,7 +496,7 @@ async function deleteDiscordUserData(opts) {
  *
  * @param {import('express').Express} app
  * @param {Object} [options]
- * @param {Object} [options.kv]                  - client Upstash KV (opsional, jika tidak diisi pakai defaultKv di atas)
+ * @param {Object} [options.kv]                  - client Upstash KV (@vercel/kv) opsional
  * @param {Function} [options.requireAdmin]      - middleware proteksi admin (misal ensureAdminSession)
  * @param {Function} [options.logger]            - logger custom (default console)
  */
@@ -298,7 +519,6 @@ function registerDiscordBulkDeleteRoutes(app, options = {}) {
   // Body:   discordIds (bisa string atau array)
   app.post("/admin/discord/bulk-delete-users", requireAdmin, async (req, res) => {
     try {
-      // Support beberapa nama field untuk fleksibilitas EJS
       let discordIds =
         req.body.discordIds ||
         req.body["discordIds[]"] ||
@@ -311,12 +531,10 @@ function registerDiscordBulkDeleteRoutes(app, options = {}) {
       logger.log("[serverv3] bulk-delete-users raw body:", req.body);
       logger.log("[serverv3] bulk-delete-users raw discordIds:", discordIds);
 
-      // Normalisasi ke array
       if (!Array.isArray(discordIds)) {
         discordIds = [discordIds];
       }
 
-      // Bersihkan duplikat dan kosong
       const normalized = Array.from(
         new Set(
           discordIds
@@ -328,15 +546,14 @@ function registerDiscordBulkDeleteRoutes(app, options = {}) {
       logger.log("[serverv3] bulk-delete-users normalized IDs:", normalized);
 
       if (normalized.length === 0) {
-        // Tidak ada yang dipilih
         return res.redirect("/admin/discord?bulkDelete=0&msg=NoUserSelected");
       }
 
       const results = [];
-      for (const discordId of normalized) {
+      for (const id of normalized) {
         try {
           const result = await deleteDiscordUserData({
-            discordId,
+            discordId: id,
             kvClient,
             logger
           });
@@ -344,7 +561,7 @@ function registerDiscordBulkDeleteRoutes(app, options = {}) {
         } catch (errInner) {
           logger.error(
             "[serverv3] Error deleteDiscordUserData untuk",
-            discordId,
+            id,
             errInner
           );
         }
@@ -353,16 +570,12 @@ function registerDiscordBulkDeleteRoutes(app, options = {}) {
       const totalUsers   = results.length;
       const totalKeys    = results.reduce((acc, r) => acc + (r.removedKeys || 0), 0);
       const totalExec    = results.reduce((acc, r) => acc + (r.removedExecEntries || 0), 0);
-      const totalProfile = results.reduce(
-        (acc, r) => acc + (r.removedProfile ? 1 : 0),
-        0
-      );
+      const totalProfile = results.reduce((acc, r) => acc + (r.removedProfile ? 1 : 0), 0);
 
       logger.log(
         `[serverv3] Bulk delete selesai. Users=${totalUsers}, Keys=${totalKeys}, ExecEntries=${totalExec}, ProfilesRemoved=${totalProfile}`
       );
 
-      // Redirect kembali ke halaman admin discord dengan query info
       const query =
         `bulkDelete=${totalUsers}` +
         `&bulkDeleteKeys=${totalKeys}` +
