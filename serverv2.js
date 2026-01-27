@@ -3,6 +3,18 @@
 
 const crypto = require("crypto");
 
+// Optional: mount serverv3.js if available
+let mountServerV3 = null;
+try {
+  // serverv3.js di root folder yang sama
+  mountServerV3 = require("./serverv3");
+} catch (err) {
+  console.warn(
+    "[serverv2] serverv3.js not found or failed to load:",
+    err && err.message ? err.message : err
+  );
+}
+
 // ---------- Helper: Base API & Redirect Discord ----------
 function resolveExHubApiBase() {
   const SITE_BASE = process.env.EXHUB_SITE_BASE || "https://exc-webs.vercel.app";
@@ -1485,7 +1497,7 @@ async function resetFreeKeyHwid(token) {
 // =====================================================
 // MOUNT MODULE
 // =====================================================
-module.exports = function mountDiscordOAuth(app) {
+function mountDiscordOAuth(app) {
   const DISCORD_CLIENT_ID =
     (process.env.DISCORD_CLIENT_ID || process.env.CLIENT_ID || "").trim() ||
     null;
@@ -3677,4 +3689,62 @@ module.exports = function mountDiscordOAuth(app) {
     res.redirect("/");
   });
 
-  console.log("[serverv2] serverv2 routes mounted (Discord OAuth + Dashboard + Free/Paid Key API + Admin).");};
+  // ---------- META: backend version info ----------
+  app.get("/api/meta/backends", (req, res) => {
+    res.json({
+      v2: true,
+      v3: !!mountServerV3,
+      exhubApiBase: EXHUB_API_BASE,
+    });
+  });
+
+  // ---------- INTEGRASI serverv3.js ----------
+  if (mountServerV3 && typeof mountServerV3 === "function") {
+    const sharedCore = {
+      nowMs,
+      kvRequest,
+      kvGetJson,
+      kvSetJson,
+      extractRobloxIdentity,
+      formatDualTimeLabelMs,
+      formatTimeLeftLabelFromMs,
+      parseDateOrTimestamp,
+      parseHHMMSS,
+      loadGlobalKeyConfig,
+      getFreeKeyTtlMs,
+      getPaidDurationsMs,
+      getPaidKeyRecord,
+      setPaidKeyRecord,
+      getPaidKeysForUserPersistent,
+      getFreeKeysForUserPersistent,
+      resetPaidKeyHwid,
+      resetFreeKeyHwid,
+      getExecIndexByTokenCached,
+      makeDiscordAvatarUrl,
+      makeDiscordBannerUrl,
+      hasFreeKeyKV,
+      resolveExHubApiBase,
+    };
+
+    try {
+      mountServerV3(app, {
+        core: sharedCore,
+        EXHUB_API_BASE,
+      });
+      console.log("[serverv2] serverv3 routes mounted via serverv2 (bridge).");
+    } catch (err) {
+      console.error(
+        "[serverv2] Failed to mount serverv3 routes:",
+        err && err.message ? err.message : err
+      );
+    }
+
+    // expose core juga via export (kalau serverv3 import balik)
+    mountDiscordOAuth.core = sharedCore;
+  }
+
+  console.log("[serverv2] serverv2 routes mounted (Discord OAuth + Dashboard + Free/Paid Key API + Admin).");
+}
+
+// export utama
+module.exports = mountDiscordOAuth;
