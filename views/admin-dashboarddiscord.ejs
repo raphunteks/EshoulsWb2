@@ -57,6 +57,20 @@
           </div>
         </header>
 
+        <!-- OPTIONAL: FLASH / INFO SETELAH BULK DELETE -->
+        <% if (typeof bulkDelete !== 'undefined' && bulkDelete) { %>
+          <div class="alert alert-info" style="margin-top:10px;">
+            <div class="table-main-text">
+              Bulk delete selesai untuk <strong><%= bulkDelete %></strong> Discord user(s).
+            </div>
+            <div class="table-sub-text">
+              Keys dihapus: <strong><%= typeof bulkDeleteKeys !== 'undefined' ? bulkDeleteKeys : '?' %></strong>,
+              Exec entries: <strong><%= typeof bulkDeleteExec !== 'undefined' ? bulkDeleteExec : '?' %></strong>,
+              Profil dihapus: <strong><%= typeof bulkDeleteProfiles !== 'undefined' ? bulkDeleteProfiles : '?' %></strong>.
+            </div>
+          </div>
+        <% } %>
+
         <!-- METRICS DISCORD GLOBAL -->
         <div class="key-admin-metrics admin-key-metrics">
           <div class="key-admin-metric-card">
@@ -497,7 +511,7 @@
           </form>
         </section>
 
-        <!-- ========== DISCORD USERS OVERVIEW (FULL WIDTH) ========== -->
+        <!-- ========== DISCORD USERS OVERVIEW (FULL WIDTH + BULK DELETE) ========== -->
         <section class="card admin-card-user-list">
           <div class="card-header">
             <div class="card-header-main">
@@ -512,151 +526,206 @@
           </div>
 
           <% if (userStats && userStats.length > 0) { %>
-            <div class="table-wrapper key-admin-table-wrapper">
-              <table class="table table-compact key-table-activity" id="discord-users-table">
-                <thead>
-                  <tr>
-                    <th>Discord User</th>
-                    <th>Keys (Total / Active)</th>
-                    <th>Paid / Free</th>
-                    <th>Last Login</th>
-                    <th>Last Key Expires</th>
-                    <th>STATUS KEY</th>
-                    <th>STATUS ACC DC</th>
-                    <th class="key-col-actions">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <% userStats.forEach(function(row) { %>
-                    <tr
-                      class="discord-user-row <%= selectedUser && selectedUser.discordId === row.discordId ? 'key-row-highlight' : '' %> <%= row.banned ? 'discord-user-row--banned' : '' %>"
-                      data-discord-id="<%= row.discordId %>"
-                    >
-                      <!-- DISCORD USER -->
-                      <td class="table-main-text">
-                        <div class="discord-user-cell">
-                          <div class="discord-user-avatar">
-                            <% if (row.avatarUrl) { %>
-                              <img
-                                src="<%= row.avatarUrl %>"
-                                alt="Avatar"
-                                class="avatar-img avatar-img--sm"
-                              />
-                            <% } else { %>
-                              <div class="avatar-fallback avatar-fallback--sm">
-                                <%= (row.globalName || row.username || '?').charAt(0).toUpperCase() %>
-                              </div>
-                            <% } %>
-                          </div>
-                          <div class="discord-user-meta">
-                            <div class="discord-user-name">
-                              <%= row.globalName || row.username || 'Unknown' %>
-                            </div>
-                            <div class="table-sub-text mono">
-                              <%= row.tag || ((row.username || 'user') + '#' + (row.discriminator || '0000')) %>
-                            </div>
-                            <div class="table-sub-text mono">
-                              ID: <%= row.discordId %>
-                            </div>
-                            <% if (typeof row.guildCount !== 'undefined') { %>
-                              <div class="table-sub-text">
-                                Guilds: <%= row.guildCount %> server
-                              </div>
-                            <% } %>
-                          </div>
-                        </div>
-                      </td>
+            <!-- FORM BULK DELETE USERS -->
+            <form
+              action="/admin/discord/bulk-delete-users"
+              method="POST"
+              class="discord-bulk-form"
+              autocomplete="off"
+              onsubmit="return confirm('Hapus SEMUA data (keys, profil Discord, HWID, IP, exec) untuk user yang dicentang? TINDAKAN TIDAK DAPAT DIBATALKAN. Lanjutkan?');"
+            >
+              <div
+                class="discord-bulk-actions"
+                style="margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;"
+              >
+                <div class="table-sub-text">
+                  Centang user yang ingin dihapus permanen. Semua key user tersebut akan
+                  dipindah ke <code>deleted-keys</code>, profil Discord dihapus dari store,
+                  dan data eksekusi terkait key (HWID, IP, totalExec, map history) akan
+                  dibersihkan dari <code>exec-users</code>.
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                  <span
+                    class="table-sub-text mono"
+                    id="discord-selected-count"
+                  >
+                    0 selected
+                  </span>
+                  <button
+                    type="submit"
+                    class="key-btn key-btn-xs key-btn-outline key-btn-danger-soft"
+                  >
+                    Delete Selected Users
+                  </button>
+                </div>
+              </div>
 
-                      <!-- KEYS (TOTAL / ACTIVE) -->
-                      <td class="table-main-text">
-                        <div><strong><%= row.totalKeys || 0 %></strong> total</div>
-                        <div class="table-sub-text">
-                          <%= row.activeKeys || 0 %> active
-                        </div>
-                      </td>
-
-                      <!-- PAID / FREE -->
-                      <td class="table-main-text">
-                        <div><%= row.paidKeys || 0 %> paid</div>
-                        <div class="table-sub-text">
-                          <%= row.freeKeys || 0 %> free
-                        </div>
-                      </td>
-
-                      <!-- LAST LOGIN -->
-                      <td class="table-main-text">
-                        <% if (row.lastLoginAtWITA || row.lastLoginAtWIB) { %>
-                          <div><%= row.lastLoginAtWITA || '-' %></div>
-                          <div class="table-sub-text"><%= row.lastLoginAtWIB || '' %></div>
-                        <% } else { %>
-                          <div><%= row.lastLoginAtLabel || '-' %></div>
-                        <% } %>
-                      </td>
-
-                      <!-- LAST KEY EXPIRES -->
-                      <td class="table-main-text">
-                        <% if (row.lastKeyExpiresAtWITA || row.lastKeyExpiresAtWIB) { %>
-                          <div><%= row.lastKeyExpiresAtWITA || '-' %></div>
-                          <div class="table-sub-text"><%= row.lastKeyExpiresAtWIB || '' %></div>
-                        <% } else { %>
-                          <div><%= row.lastKeyExpiresAtLabel || '-' %></div>
-                        <% } %>
-                      </td>
-
-                      <!-- STATUS KEY -->
-                      <td class="table-main-text">
-                        <%
-                          var banned = !!row.banned;
-                          var totalKeysRow = row.totalKeys || 0;
-                          var activeKeysRow = row.activeKeys || 0;
-                          var statusKeyLabel;
-                          var statusKeyClass;
-
-                          if (totalKeysRow === 0) {
-                            statusKeyLabel = 'No Keys';
-                            statusKeyClass = 'status-pill status-pill--pending';
-                          } else if (activeKeysRow > 0) {
-                            statusKeyLabel = 'Active';
-                            statusKeyClass = 'status-pill status-pill--active';
-                          } else {
-                            statusKeyLabel = 'Expired';
-                            statusKeyClass = 'status-pill status-pill--expired';
-                          }
-                        %>
-                        <span class="<%= statusKeyClass %>">
-                          <span class="status-pill-dot"></span>
-                          <span class="status-pill-text"><%= statusKeyLabel %></span>
-                        </span>
-                      </td>
-
-                      <!-- STATUS ACC DC -->
-                      <td class="table-main-text">
-                        <%
-                          var statusAccLabel = banned ? 'Banned' : 'Active';
-                          var statusAccClass = banned
-                            ? 'status-pill status-pill--expired'
-                            : 'status-pill status-pill--active';
-                        %>
-                        <span class="<%= statusAccClass %>">
-                          <span class="status-pill-dot"></span>
-                          <span class="status-pill-text"><%= statusAccLabel %></span>
-                        </span>
-                      </td>
-
-                      <!-- ACTIONS -->
-                      <td class="key-cell-actions">
-                        <a
-                          href="<%= buildManageHref(row.discordId) %>"
-                          class="key-btn key-btn-xs key-btn-outline"
-                        >
-                          Manage
-                        </a>
-                      </td>
+              <div class="table-wrapper key-admin-table-wrapper">
+                <table class="table table-compact key-table-activity" id="discord-users-table">
+                  <thead>
+                    <tr>
+                      <th style="width:32px;text-align:center;">
+                        <input
+                          type="checkbox"
+                          id="select-all-discord-users"
+                          aria-label="Select all users"
+                        />
+                      </th>
+                      <th>Discord User</th>
+                      <th>Keys (Total / Active)</th>
+                      <th>Paid / Free</th>
+                      <th>Last Login</th>
+                      <th>Last Key Expires</th>
+                      <th>STATUS KEY</th>
+                      <th>STATUS ACC DC</th>
+                      <th class="key-col-actions">Actions</th>
                     </tr>
-                  <% }); %>
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    <% userStats.forEach(function(row) { %>
+                      <tr
+                        class="discord-user-row <%= selectedUser && selectedUser.discordId === row.discordId ? 'key-row-highlight' : '' %> <%= row.banned ? 'discord-user-row--banned' : '' %>"
+                        data-discord-id="<%= row.discordId %>"
+                      >
+                        <!-- SELECT CHECKBOX -->
+                        <td
+                          style="text-align:center;vertical-align:middle;"
+                        >
+                          <input
+                            type="checkbox"
+                            name="discordIds[]"
+                            value="<%= row.discordId %>"
+                            class="discord-select-checkbox"
+                            aria-label="Select user <%= row.globalName || row.username || row.discordId %>"
+                          />
+                        </td>
+
+                        <!-- DISCORD USER -->
+                        <td class="table-main-text">
+                          <div class="discord-user-cell">
+                            <div class="discord-user-avatar">
+                              <% if (row.avatarUrl) { %>
+                                <img
+                                  src="<%= row.avatarUrl %>"
+                                  alt="Avatar"
+                                  class="avatar-img avatar-img--sm"
+                                />
+                              <% } else { %>
+                                <div class="avatar-fallback avatar-fallback--sm">
+                                  <%= (row.globalName || row.username || '?').charAt(0).toUpperCase() %>
+                                </div>
+                              <% } %>
+                            </div>
+                            <div class="discord-user-meta">
+                              <div class="discord-user-name">
+                                <%= row.globalName || row.username || 'Unknown' %>
+                              </div>
+                              <div class="table-sub-text mono">
+                                <%= row.tag || ((row.username || 'user') + '#' + (row.discriminator || '0000')) %>
+                              </div>
+                              <div class="table-sub-text mono">
+                                ID: <%= row.discordId %>
+                              </div>
+                              <% if (typeof row.guildCount !== 'undefined') { %>
+                                <div class="table-sub-text">
+                                  Guilds: <%= row.guildCount %> server
+                                </div>
+                              <% } %>
+                            </div>
+                          </div>
+                        </td>
+
+                        <!-- KEYS (TOTAL / ACTIVE) -->
+                        <td class="table-main-text">
+                          <div><strong><%= row.totalKeys || 0 %></strong> total</div>
+                          <div class="table-sub-text">
+                            <%= row.activeKeys || 0 %> active
+                          </div>
+                        </td>
+
+                        <!-- PAID / FREE -->
+                        <td class="table-main-text">
+                          <div><%= row.paidKeys || 0 %> paid</div>
+                          <div class="table-sub-text">
+                            <%= row.freeKeys || 0 %> free
+                          </div>
+                        </td>
+
+                        <!-- LAST LOGIN -->
+                        <td class="table-main-text">
+                          <% if (row.lastLoginAtWITA || row.lastLoginAtWIB) { %>
+                            <div><%= row.lastLoginAtWITA || '-' %></div>
+                            <div class="table-sub-text"><%= row.lastLoginAtWIB || '' %></div>
+                          <% } else { %>
+                            <div><%= row.lastLoginAtLabel || '-' %></div>
+                          <% } %>
+                        </td>
+
+                        <!-- LAST KEY EXPIRES -->
+                        <td class="table-main-text">
+                          <% if (row.lastKeyExpiresAtWITA || row.lastKeyExpiresAtWIB) { %>
+                            <div><%= row.lastKeyExpiresAtWITA || '-' %></div>
+                            <div class="table-sub-text"><%= row.lastKeyExpiresAtWIB || '' %></div>
+                          <% } else { %>
+                            <div><%= row.lastKeyExpiresAtLabel || '-' %></div>
+                          <% } %>
+                        </td>
+
+                        <!-- STATUS KEY -->
+                        <td class="table-main-text">
+                          <%
+                            var banned = !!row.banned;
+                            var totalKeysRow = row.totalKeys || 0;
+                            var activeKeysRow = row.activeKeys || 0;
+                            var statusKeyLabel;
+                            var statusKeyClass;
+
+                            if (totalKeysRow === 0) {
+                              statusKeyLabel = 'No Keys';
+                              statusKeyClass = 'status-pill status-pill--pending';
+                            } else if (activeKeysRow > 0) {
+                              statusKeyLabel = 'Active';
+                              statusKeyClass = 'status-pill status-pill--active';
+                            } else {
+                              statusKeyLabel = 'Expired';
+                              statusKeyClass = 'status-pill status-pill--expired';
+                            }
+                          %>
+                          <span class="<%= statusKeyClass %>">
+                            <span class="status-pill-dot"></span>
+                            <span class="status-pill-text"><%= statusKeyLabel %></span>
+                          </span>
+                        </td>
+
+                        <!-- STATUS ACC DC -->
+                        <td class="table-main-text">
+                          <%
+                            var statusAccLabel = banned ? 'Banned' : 'Active';
+                            var statusAccClass = banned
+                              ? 'status-pill status-pill--expired'
+                              : 'status-pill status-pill--active';
+                          %>
+                          <span class="<%= statusAccClass %>">
+                            <span class="status-pill-dot"></span>
+                            <span class="status-pill-text"><%= statusAccLabel %></span>
+                          </span>
+                        </td>
+
+                        <!-- ACTIONS -->
+                        <td class="key-cell-actions">
+                          <a
+                            href="<%= buildManageHref(row.discordId) %>"
+                            class="key-btn key-btn-xs key-btn-outline"
+                          >
+                            Manage
+                          </a>
+                        </td>
+                      </tr>
+                    <% }); %>
+                  </tbody>
+                </table>
+              </div>
+            </form>
 
             <!-- PAGINATION BAR (UPGRADED UI) -->
             <div class="pagination-bar" style="margin-top:12px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
@@ -1465,7 +1534,7 @@
     </div>
   </div>
 
-  <!-- ==================== JS: Live Countdown ==================== -->
+  <!-- ==================== JS: Live Countdown + Bulk Select ==================== -->
   <script>
     (function () {
       // Realtime countdown "Time left" menggunakan expiresAtMs dari server
@@ -1528,8 +1597,59 @@
         setInterval(tick, 1000);
       }
 
+      // Bulk select untuk Discord Users Overview (checkbox)
+      function initDiscordBulkSelect() {
+        var bulkForm = document.querySelector('.discord-bulk-form');
+        if (!bulkForm) return;
+
+        var selectAll = document.getElementById('select-all-discord-users');
+        var checkboxes = bulkForm.querySelectorAll('.discord-select-checkbox');
+        var selectedCountEl = document.getElementById('discord-selected-count');
+
+        function updateSelectedCount() {
+          if (!selectedCountEl) return;
+          var count = 0;
+          checkboxes.forEach(function (cb) {
+            if (cb.checked) count++;
+          });
+          selectedCountEl.textContent = count + ' selected';
+        }
+
+        if (selectAll) {
+          selectAll.addEventListener('change', function () {
+            var checked = !!selectAll.checked;
+            checkboxes.forEach(function (cb) {
+              cb.checked = checked;
+            });
+            updateSelectedCount();
+          });
+        }
+
+        checkboxes.forEach(function (cb) {
+          cb.addEventListener('change', function () {
+            // sinkronisasi state select all
+            if (selectAll) {
+              var allChecked = true;
+              var anyChecked = false;
+              checkboxes.forEach(function (item) {
+                if (!item.checked) {
+                  allChecked = false;
+                } else {
+                  anyChecked = true;
+                }
+              });
+              selectAll.checked = allChecked && anyChecked;
+            }
+            updateSelectedCount();
+          });
+        });
+
+        updateSelectedCount();
+      }
+
       document.addEventListener('DOMContentLoaded', function () {
         initCountdown();
+        initDiscordBulkSelect();
       });
     })();
   </script>
