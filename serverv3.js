@@ -642,12 +642,14 @@ async function deleteDiscordUserData(opts) {
   };
 }
 
-// giveaway helpers
+// ============================================================================
+// Giveaway helpers (UPGRADED: simpan profil peserta + winners)
+// ============================================================================
 
 async function loadGiveaways(kvClient, logger = console) {
   const giveaways = await loadStore({
     kvClient,
-    kvKey: KV_GIVEAWAYS_KEY,
+    kvKey:   KV_GIVEAWAYS_KEY,
     filePath: FILE_GIVEAWAYS,
     defaultValue: []
   });
@@ -662,13 +664,13 @@ async function loadGiveaways(kvClient, logger = console) {
 async function saveGiveaways(kvClient, giveaways) {
   await saveStore({
     kvClient,
-    kvKey: KV_GIVEAWAYS_KEY,
+    kvKey:   KV_GIVEAWAYS_KEY,
     filePath: FILE_GIVEAWAYS,
-    value: Array.isArray(giveaways) ? giveaways : []
+    value:   Array.isArray(giveaways) ? giveaways : []
   });
 }
 
-// normalisasi peserta/winner ke bentuk objek
+// Normalisasi peserta/winner ke objek
 function normalizeParticipant(entry) {
   if (!entry) return null;
   if (typeof entry === "string") {
@@ -692,6 +694,7 @@ function normalizeParticipant(entry) {
   return null;
 }
 
+// Untuk response publik / summary
 function sanitizeGiveawayForPublic(g) {
   if (!g) return null;
   const copy = { ...g };
@@ -715,29 +718,27 @@ function normalizePlan(planRaw) {
   if (!planRaw) return null;
   let p = String(planRaw).toLowerCase().trim();
   if (p === "three" || p === "3") p = "3month";
-  if (p === "six" || p === "6") p = "6month";
+  if (p === "six"   || p === "6") p = "6month";
   const allowed = ["month", "3month", "6month", "lifetime"];
   return allowed.includes(p) ? p : null;
 }
 
 async function createGiveawayRecord(opts) {
   const kvClient = opts.kvClient || defaultKv;
-  const logger = opts.logger || console;
+  const logger   = opts.logger || console;
 
-  const guildId = String(opts.guildId || "").trim();
-  const channelId = String(opts.channelId || "").trim();
-  const messageId = String(opts.messageId || "").trim();
-  const creatorId = String(opts.createdByDiscordId || "").trim();
-  const prize = String(opts.prize || "").trim();
+  const guildId    = String(opts.guildId || "").trim();
+  const channelId  = String(opts.channelId || "").trim();
+  const messageId  = String(opts.messageId || "").trim();
+  const creatorId  = String(opts.createdByDiscordId || "").trim();
+  const prize      = String(opts.prize || "").trim();
   const description = String(opts.description || "").trim();
   const winnersCountRaw =
     opts.winnersCount != null ? opts.winnersCount : opts.numberOfWinners;
   const plan = normalizePlan(opts.plan);
 
   let winnersCount = parseInt(winnersCountRaw, 10);
-  if (Number.isNaN(winnersCount) || winnersCount <= 0) {
-    winnersCount = 1;
-  }
+  if (Number.isNaN(winnersCount) || winnersCount <= 0) winnersCount = 1;
 
   let durationMs = 0;
   if (opts.durationMs != null) {
@@ -756,13 +757,14 @@ async function createGiveawayRecord(opts) {
     durationMs = 24 * 60 * 60 * 1000;
   }
 
-  const nowMs = Date.now();
-  const endsMs = nowMs + durationMs;
+  const nowMs   = Date.now();
+  const endsMs  = nowMs + durationMs;
   const endsIso = new Date(endsMs).toISOString();
 
   const randomPart = Math.random().toString(36).slice(2, 8);
-  const id = `ga_${nowMs}_${randomPart}`;
+  const id         = `ga_${nowMs}_${randomPart}`;
 
+  // Dengan SUMMARY_BASE_URL=.../summary → summaryUrl=.../summary/ga/<id>
   const summaryUrl = `${SUMMARY_BASE_URL}/ga/${encodeURIComponent(id)}`;
 
   const giveaway = {
@@ -773,7 +775,7 @@ async function createGiveawayRecord(opts) {
     createdByDiscordId: creatorId,
     createdAtIso: new Date(nowMs).toISOString(),
     durationMs,
-    endsAtMs: endsMs,
+    endsAtMs:  endsMs,
     endsAtIso: endsIso,
     winnersCount,
     prize,
@@ -798,23 +800,17 @@ async function createGiveawayRecord(opts) {
 
 async function joinGiveaway(opts) {
   const kvClient = opts.kvClient || defaultKv;
-  const logger = opts.logger || console;
+  const logger   = opts.logger || console;
 
   const giveawayId = String(opts.giveawayId || "").trim();
-  const discordId = String(opts.discordId || "").trim();
+  const discordId  = String(opts.discordId || "").trim();
 
-  if (!giveawayId) {
-    throw new Error("joinGiveaway: giveawayId kosong");
-  }
-  if (!discordId) {
-    throw new Error("joinGiveaway: discordId kosong");
-  }
+  if (!giveawayId) throw new Error("joinGiveaway: giveawayId kosong");
+  if (!discordId)  throw new Error("joinGiveaway: discordId kosong");
 
   const giveaways = await loadGiveaways(kvClient, logger);
-  const idx = giveaways.findIndex((g) => g && g.id === giveawayId);
-  if (idx === -1) {
-    throw new Error("Giveaway tidak ditemukan");
-  }
+  const idx       = giveaways.findIndex((g) => g && g.id === giveawayId);
+  if (idx === -1) throw new Error("Giveaway tidak ditemukan");
 
   const g = giveaways[idx];
   if (g.status !== "running") {
@@ -834,14 +830,16 @@ async function joinGiveaway(opts) {
   };
 
   const existing = participants.find((p) => p.discordId === discordId);
+  let joined = false;
+
   if (existing) {
-    // update snapshot jika ada info baru
     existing.username = profile.username || existing.username;
     existing.globalName = profile.globalName || existing.globalName;
     existing.discriminator = profile.discriminator || existing.discriminator;
     existing.avatar = profile.avatar || existing.avatar;
   } else {
     participants.push(profile);
+    joined = true;
   }
 
   g.participants = participants;
@@ -849,20 +847,20 @@ async function joinGiveaway(opts) {
   await saveGiveaways(kvClient, giveaways);
 
   logger.log(
-    `[serverv3] joinGiveaway ok id=${giveawayId} user=${discordId} joined=${!existing} count=${participants.length}`
+    `[serverv3] joinGiveaway ok id=${giveawayId} user=${discordId} joined=${joined} count=${participants.length}`
   );
 
   return {
     giveaway: g,
-    joined: !existing,
+    joined,
     participantsCount: participants.length
   };
 }
 
-// nama fungsi tetap sama untuk kompatibilitas, tetapi tidak generate key lagi
+// Nama fungsi tetap dipakai bot, tapi sekarang juga pilih winners dari snapshot peserta
 async function endGiveawayAndGenerateKeys(opts) {
   const kvClient = opts.kvClient || defaultKv;
-  const logger = opts.logger || console;
+  const logger   = opts.logger || console;
 
   const giveawayId = String(opts.giveawayId || "").trim();
   if (!giveawayId) {
@@ -870,10 +868,8 @@ async function endGiveawayAndGenerateKeys(opts) {
   }
 
   const giveaways = await loadGiveaways(kvClient, logger);
-  const idx = giveaways.findIndex((g) => g && g.id === giveawayId);
-  if (idx === -1) {
-    throw new Error("Giveaway tidak ditemukan");
-  }
+  const idx       = giveaways.findIndex((g) => g && g.id === giveawayId);
+  if (idx === -1) throw new Error("Giveaway tidak ditemukan");
 
   const g = giveaways[idx];
 
@@ -883,8 +879,8 @@ async function endGiveawayAndGenerateKeys(opts) {
 
   if (g.status === "ended" && Array.isArray(g.winners) && g.winners.length > 0) {
     return {
-      giveaway: g,
-      winners: g.winners,
+      giveaway:    g,
+      winners:     g.winners,
       newlyCreated: false
     };
   }
@@ -895,8 +891,8 @@ async function endGiveawayAndGenerateKeys(opts) {
 
   const participantsIds = participantsNorm.map((p) => p.discordId);
   if (participantsIds.length === 0) {
-    g.status = "ended";
-    g.winners = [];
+    g.status     = "ended";
+    g.winners    = [];
     g.endedAtIso = nowIso();
     giveaways[idx] = g;
     await saveGiveaways(kvClient, giveaways);
@@ -906,8 +902,8 @@ async function endGiveawayAndGenerateKeys(opts) {
     );
 
     return {
-      giveaway: g,
-      winners: [],
+      giveaway:    g,
+      winners:     [],
       newlyCreated: false
     };
   }
@@ -916,7 +912,6 @@ async function endGiveawayAndGenerateKeys(opts) {
     g.winnersCount && g.winnersCount > 0 ? g.winnersCount : 1;
   const pickCount = Math.min(winnersCount, participantsIds.length);
 
-  // shuffle ids
   for (let i = participantsIds.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [participantsIds[i], participantsIds[j]] = [participantsIds[j], participantsIds[i]];
@@ -944,8 +939,8 @@ async function endGiveawayAndGenerateKeys(opts) {
     };
   });
 
-  g.status = "ended";
-  g.winners = winnersRecords;
+  g.status     = "ended";
+  g.winners    = winnersRecords;
   g.endedAtIso = nowIso();
   giveaways[idx] = g;
   await saveGiveaways(kvClient, giveaways);
@@ -955,15 +950,15 @@ async function endGiveawayAndGenerateKeys(opts) {
   );
 
   return {
-    giveaway: g,
-    winners: winnersRecords,
+    giveaway:    g,
+    winners:     winnersRecords,
     newlyCreated: true
   };
 }
 
 async function deleteGiveawayById(opts) {
   const kvClient = opts.kvClient || defaultKv;
-  const logger = opts.logger || console;
+  const logger   = opts.logger || console;
   const giveawayId = String(opts.giveawayId || "").trim();
 
   if (!giveawayId) {
@@ -984,31 +979,144 @@ async function deleteGiveawayById(opts) {
   return { giveawayId, removed };
 }
 
-// registrasi route
+// ============================================================================
+// Registrasi route ke Express
+// ============================================================================
 
 function registerDiscordBulkDeleteRoutes(app, options = {}) {
-  const kvClient = options.kv || defaultKv;
-  const requireAdmin = options.requireAdmin || ((req, res, next) => next());
+  const kvClient       = options.kv || defaultKv;
+  const requireAdmin   = options.requireAdmin   || ((req, res, next) => next());
   const requireBotAuth = options.requireBotAuth || ((req, res, next) => next());
-  const logger = options.logger || console;
+  const logger         = options.logger || console;
 
   if (!app) {
     throw new Error("[serverv3] registerDiscordBulkDeleteRoutes: app tidak terdefinisi");
   }
 
-  // ... (route bulk-delete-users dan generate-paid-key tetap sama)
-
+  // Bulk delete semua data user Discord
   app.post("/admin/discord/bulk-delete-users", requireAdmin, async (req, res) => {
-    // (isi sama persis seperti versi kamu sebelumnya)
-    // ...
+    try {
+      let discordIds =
+        req.body.discordIds ||
+        req.body["discordIds[]"] ||
+        req.body.selectedDiscordIds ||
+        req.body["selectedDiscordIds[]"] ||
+        req.body.userIds ||
+        req.body["userIds[]"] ||
+        [];
+
+      logger.log("[serverv3] bulk-delete-users raw body:", req.body);
+      logger.log("[serverv3] bulk-delete-users raw discordIds:", discordIds);
+
+      if (!Array.isArray(discordIds)) {
+        discordIds = [discordIds];
+      }
+
+      const normalized = Array.from(
+        new Set(
+          discordIds
+            .map((id) => String(id || "").trim())
+            .filter((id) => !!id)
+        )
+      );
+
+      logger.log("[serverv3] bulk-delete-users normalized IDs:", normalized);
+
+      if (normalized.length === 0) {
+        return res.redirect("/admin/discord?bulkDelete=0&msg=NoUserSelected");
+      }
+
+      const results = [];
+      for (const id of normalized) {
+        try {
+          const result = await deleteDiscordUserData({
+            discordId: id,
+            kvClient,
+            logger
+          });
+          results.push(result);
+        } catch (errInner) {
+          logger.error("[serverv3] Error deleteDiscordUserData untuk", id, errInner);
+        }
+      }
+
+      const totalUsers   = results.length;
+      const totalKeys    = results.reduce((acc, r) => acc + (r.removedKeys || 0), 0);
+      const totalExec    = results.reduce((acc, r) => acc + (r.removedExecEntries || 0), 0);
+      const totalProfile = results.reduce((acc, r) => acc + (r.removedProfile ? 1 : 0), 0);
+
+      logger.log(
+        `[serverv3] Bulk delete selesai. Users=${totalUsers}, Keys=${totalKeys}, ExecEntries=${totalExec}, ProfilesRemoved=${totalProfile}`
+      );
+
+      const query =
+        `bulkDelete=${totalUsers}` +
+        `&bulkDeleteKeys=${totalKeys}` +
+        `&bulkDeleteExec=${totalExec}` +
+        `&bulkDeleteProfiles=${totalProfile}`;
+
+      return res.redirect("/admin/discord?" + query);
+    } catch (err) {
+      logger.error("[serverv3] bulk-delete-users error:", err);
+      return res
+        .status(500)
+        .send("Error while bulk deleting Discord users. Check server logs.");
+    }
   });
 
+  // Manual generate paid key via Admin Panel
   app.post("/admin/discord/generate-paid-key", requireAdmin, async (req, res) => {
-    // (isi sama persis seperti versi kamu sebelumnya)
-    // ...
+    try {
+      const discordId = String(req.body.discordId || "").trim();
+      let plan        = String(req.body.plan || "month").toLowerCase().trim();
+
+      if (!discordId) {
+        return res.redirect("/admin/discord?msg=MissingDiscordId");
+      }
+
+      const result = await generatePaidKeyForDiscordUser({
+        discordId,
+        plan,
+        kvClient,
+        logger
+      });
+
+      const params = new URLSearchParams();
+      params.set("user",           discordId);
+      params.set("generated",      "1");
+      params.set("generatedPlan",  result.plan);
+      params.set("generatedToken", result.token);
+
+      return res.redirect("/admin/discord?" + params.toString());
+    } catch (err) {
+      logger.error("[serverv3] generate-paid-key error:", err);
+      return res
+        .status(500)
+        .send("Error while generating paid key. Check server logs.");
+    }
   });
 
-  // === GIVEAWAY API UNTUK BOT ===
+  // ADMIN: delete giveaway dari database
+  app.post("/admin/discord/giveaway/delete/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = String(req.params.id || "").trim();
+      const result = await deleteGiveawayById({
+        kvClient,
+        logger,
+        giveawayId: id
+      });
+
+      const redirectTo = `/summary/ga/${encodeURIComponent(id)}?deleted=${result.removed}`;
+      return res.redirect(redirectTo);
+    } catch (err) {
+      logger.error("[serverv3] /admin/discord/giveaway/delete error:", err);
+      return res
+        .status(500)
+        .send("Error while deleting giveaway. Check server logs.");
+    }
+  });
+
+  // API untuk bot Discord – create giveaway
   app.post("/api/bot/giveaway/create", requireBotAuth, async (req, res) => {
     try {
       const body = req.body || {};
@@ -1016,42 +1124,43 @@ function registerDiscordBulkDeleteRoutes(app, options = {}) {
       const giveaway = await createGiveawayRecord({
         kvClient,
         logger,
-        guildId: body.guildId,
-        channelId: body.channelId,
-        messageId: body.messageId,
+        guildId:            body.guildId,
+        channelId:          body.channelId,
+        messageId:          body.messageId,
         createdByDiscordId: body.createdByDiscordId,
-        durationMs: body.durationMs,
-        durationSeconds: body.durationSeconds,
-        durationMinutes: body.durationMinutes,
-        winnersCount: body.winnersCount,
-        numberOfWinners: body.numberOfWinners,
-        prize: body.prize,
-        description: body.description,
-        plan: body.plan
+        durationMs:         body.durationMs,
+        durationSeconds:    body.durationSeconds,
+        durationMinutes:    body.durationMinutes,
+        winnersCount:       body.winnersCount,
+        numberOfWinners:    body.numberOfWinners,
+        prize:              body.prize,
+        description:        body.description,
+        plan:               body.plan
       });
 
       const sanitized = sanitizeGiveawayForPublic(giveaway);
 
       return res.json({
-        ok: true,
+        ok:       true,
         giveaway: sanitized,
         summaryUrl: giveaway.summaryUrl
       });
     } catch (err) {
       logger.error("[serverv3] /api/bot/giveaway/create error:", err);
       return res.status(500).json({
-        ok: false,
+        ok:    false,
         error: "create-failed",
         message: String((err && err.message) || err)
       });
     }
   });
 
+  // API – join giveaway
   app.post("/api/bot/giveaway/join", requireBotAuth, async (req, res) => {
     try {
-      const body = req.body || {};
+      const body       = req.body || {};
       const giveawayId = body.giveawayId || body.id;
-      const discordId = body.discordId;
+      const discordId  = body.discordId;
 
       const result = await joinGiveaway({
         kvClient,
@@ -1068,24 +1177,25 @@ function registerDiscordBulkDeleteRoutes(app, options = {}) {
       const sanitized = sanitizeGiveawayForPublic(result.giveaway);
 
       return res.json({
-        ok: true,
+        ok:       true,
         giveaway: sanitized,
-        joined: result.joined,
+        joined:   result.joined,
         participantsCount: result.participantsCount
       });
     } catch (err) {
       logger.error("[serverv3] /api/bot/giveaway/join error:", err);
       return res.status(500).json({
-        ok: false,
+        ok:    false,
         error: "join-failed",
         message: String((err && err.message) || err)
       });
     }
   });
 
+  // API – end giveaway (tanpa auto generate key Paid, tapi pilih winners dari snapshot)
   app.post("/api/bot/giveaway/end", requireBotAuth, async (req, res) => {
     try {
-      const body = req.body || {};
+      const body       = req.body || {};
       const giveawayId = body.giveawayId || body.id;
 
       const result = await endGiveawayAndGenerateKeys({
@@ -1097,31 +1207,32 @@ function registerDiscordBulkDeleteRoutes(app, options = {}) {
       const sanitized = sanitizeGiveawayForPublic(result.giveaway);
 
       return res.json({
-        ok: true,
+        ok:       true,
         giveawayId,
-        status: result.giveaway.status,
-        winners: result.winners,
+        status:   result.giveaway.status,
+        winners:  result.winners,
         giveaway: sanitized
       });
     } catch (err) {
       logger.error("[serverv3] /api/bot/giveaway/end error:", err);
       return res.status(500).json({
-        ok: false,
+        ok:    false,
         error: "end-failed",
         message: String((err && err.message) || err)
       });
     }
   });
 
+  // API – get detail giveaway
   app.get("/api/bot/giveaway/:id", requireBotAuth, async (req, res) => {
     try {
-      const id = String(req.params.id || "").trim();
+      const id        = String(req.params.id || "").trim();
       const giveaways = await loadGiveaways(kvClient, logger);
-      const g = giveaways.find((item) => item && item.id === id);
+      const g         = giveaways.find((item) => item && item.id === id);
 
       if (!g) {
         return res.status(404).json({
-          ok: false,
+          ok:    false,
           error: "not-found"
         });
       }
@@ -1129,49 +1240,29 @@ function registerDiscordBulkDeleteRoutes(app, options = {}) {
       const sanitized = sanitizeGiveawayForPublic(g);
 
       return res.json({
-        ok: true,
+        ok:       true,
         giveaway: sanitized
       });
     } catch (err) {
       logger.error("[serverv3] /api/bot/giveaway/:id error:", err);
       return res.status(500).json({
-        ok: false,
+        ok:    false,
         error: "detail-failed",
         message: String((err && err.message) || err)
       });
     }
   });
 
-  // ADMIN: delete giveaway dari database
-  app.post("/admin/discord/giveaway/delete/:id", requireAdmin, async (req, res) => {
+  // Web summary: /summary/ga/:id (sinkron dengan SUMMARY_BASE_URL)
+  app.get("/summary/ga/:id", async (req, res) => {
     try {
-      const id = String(req.params.id || "").trim();
-      const result = await deleteGiveawayById({
-        kvClient,
-        logger,
-        giveawayId: id
-      });
-
-      const redirectTo = `/ga/${encodeURIComponent(id)}?deleted=${result.removed}`;
-      return res.redirect(redirectTo);
-    } catch (err) {
-      logger.error("[serverv3] /admin/discord/giveaway/delete error:", err);
-      return res
-        .status(500)
-        .send("Error while deleting giveaway. Check server logs.");
-    }
-  });
-
-  // PUBLIC SUMMARY PAGE
-  app.get("/ga/:id", async (req, res) => {
-    try {
-      const id = String(req.params.id || "").trim();
+      const id        = String(req.params.id || "").trim();
       const giveaways = await loadGiveaways(kvClient, logger);
-      const g = giveaways.find((item) => item && item.id === id);
+      const g         = giveaways.find((item) => item && item.id === id);
 
       if (!g) {
         return res.status(404).render("discord-giveaway-summary", {
-          title: "Giveaway not found",
+          title:    "Giveaway not found",
           giveaway: null
         });
       }
@@ -1183,11 +1274,17 @@ function registerDiscordBulkDeleteRoutes(app, options = {}) {
         giveaway: sanitized
       });
     } catch (err) {
-      logger.error("[serverv3] /ga/:id error:", err);
-      return res.status(500).send("Internal error while rendering giveaway summary.");
+      logger.error("[serverv3] /summary/ga/:id error:", err);
+      return res
+        .status(500)
+        .send("Internal error while rendering giveaway summary.");
     }
   });
 }
+
+// ============================================================================
+// Exports
+// ============================================================================
 
 module.exports = {
   registerDiscordBulkDeleteRoutes,
@@ -1196,5 +1293,6 @@ module.exports = {
   createGiveawayRecord,
   joinGiveaway,
   endGiveawayAndGenerateKeys,
+  deleteGiveawayById,
   SUMMARY_BASE_URL
 };
