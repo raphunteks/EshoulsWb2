@@ -670,7 +670,7 @@ async function saveGiveaways(kvClient, giveaways) {
   });
 }
 
-// Normalisasi peserta/winner ke objek
+// Normalisasi peserta/winner ke objek snapshot
 function normalizeParticipant(entry) {
   if (!entry) return null;
   if (typeof entry === "string") {
@@ -687,6 +687,7 @@ function normalizeParticipant(entry) {
       globalName: entry.globalName || entry.displayName || null,
       discriminator: entry.discriminator || null,
       avatar: entry.avatar || null,
+      avatarUrl: entry.avatarUrl || entry.avatarURL || null,
       plan: entry.plan || null,
       expiresAtIso: entry.expiresAtIso || null
     };
@@ -694,22 +695,119 @@ function normalizeParticipant(entry) {
   return null;
 }
 
-// Untuk response publik / summary
-function sanitizeGiveawayForPublic(g) {
+// Muat map profil Discord dari KV dan store legacy
+async function loadDiscordProfilesMap({ kvClient, logger = console, discordIds }) {
+  const out = {};
+  const ids = Array.from(
+    new Set(
+      (discordIds || [])
+        .map((id) => String(id || "").trim())
+        .filter((id) => !!id)
+    )
+  );
+  if (!ids.length) return out;
+
+  // Mode baru: per user profile di KV
+  if (kvClient) {
+    for (const id of ids) {
+      try {
+        const profileKey = DISCORD_USER_PROFILE_PREFIX + id;
+        const prof = await getKv(kvClient, profileKey);
+        if (prof && typeof prof === "object") {
+          out[id] = prof;
+        }
+      } catch (err) {
+        logger.error("[serverv3] loadDiscordProfilesMap: error get profile", id, err);
+      }
+    }
+  }
+
+  // Mode legacy: map besar discord-users
+  try {
+    const legacyStore = await loadStore({
+      kvClient,
+      kvKey:   KV_DISCORD_USERS_KEY,
+      filePath: FILE_DISCORD_USERS,
+      defaultValue: {}
+    });
+    if (legacyStore && typeof legacyStore === "object") {
+      for (const id of ids) {
+        if (!out[id] && legacyStore[id]) {
+          out[id] = legacyStore[id];
+        }
+      }
+    }
+  } catch (err) {
+    logger.error("[serverv3] loadDiscordProfilesMap: error load legacy store", err);
+  }
+
+  return out;
+}
+
+// Untuk response publik / summary - sekarang async dan merge dengan profil Discord
+async function sanitizeGiveawayForPublic(g, opts = {}) {
   if (!g) return null;
+
+  const kvClient = opts.kvClient || defaultKv;
+  const logger   = opts.logger || console;
+
   const copy = { ...g };
 
-  if (Array.isArray(copy.participants)) {
-    copy.participants = copy.participants
-      .map(normalizeParticipant)
-      .filter(Boolean);
+  const participantsNorm = Array.isArray(copy.participants)
+    ? copy.participants.map(normalizeParticipant).filter(Boolean)
+    : [];
+
+  const winnersNorm = Array.isArray(copy.winners)
+    ? copy.winners.map(normalizeParticipant).filter(Boolean)
+    : [];
+
+  const allIds = [
+    ...participantsNorm.map((p) => p.discordId),
+    ...winnersNorm.map((w) => w.discordId)
+  ].filter(Boolean);
+
+  const profileMap = await loadDiscordProfilesMap({
+    kvClient,
+    logger,
+    discordIds: allIds
+  });
+
+  function mergeWithProfile(entry) {
+    if (!entry) return null;
+    const id   = entry.discordId;
+    const prof = (id && profileMap[id]) || {};
+
+    const username = entry.username || prof.username || prof.userName || null;
+    const globalName =
+      entry.globalName ||
+      entry.displayName ||
+      prof.globalName ||
+      prof.displayName ||
+      null;
+    const discriminator = entry.discriminator || prof.discriminator || null;
+    const avatar        = entry.avatar || prof.avatar || null;
+
+    let avatarUrl = null;
+    if (prof.avatarUrl) {
+      avatarUrl = prof.avatarUrl;
+    } else if (prof.avatarURL) {
+      avatarUrl = prof.avatarURL;
+    } else if (entry.avatarUrl) {
+      avatarUrl = entry.avatarUrl;
+    }
+
+    return {
+      ...entry,
+      username,
+      globalName,
+      discriminator,
+      avatar,
+      avatarUrl
+    };
   }
 
-  if (Array.isArray(copy.winners)) {
-    copy.winners = copy.winners
-      .map(normalizeParticipant)
-      .filter(Boolean);
-  }
+  copy.participants = participantsNorm.map(mergeWithProfile).filter(Boolean);
+  copy.winners      = winnersNorm.map(mergeWithProfile).filter(Boolean);
 
   return copy;
 }
@@ -833,10 +931,10 @@ async function joinGiveaway(opts) {
   let joined = false;
 
   if (existing) {
-    existing.username = profile.username || existing.username;
-    existing.globalName = profile.globalName || existing.globalName;
+    existing.username      = profile.username      || existing.username;
+    existing.globalName    = profile.globalName    || existing.globalName;
     existing.discriminator = profile.discriminator || existing.discriminator;
-    existing.avatar = profile.avatar || existing.avatar;
+    existing.avatar        = profile.avatar        || existing.avatar;
   } else {
     participants.push(profile);
     joined = true;
@@ -923,12 +1021,12 @@ async function endGiveawayAndGenerateKeys(opts) {
     const source = participantsNorm.find((p) => p.discordId === wid);
     if (source) {
       return {
-        discordId: source.discordId,
-        username: source.username || null,
-        globalName: source.globalName || null,
+        discordId:   source.discordId,
+        username:    source.username || null,
+        globalName:  source.globalName || null,
         discriminator: source.discriminator || null,
-        avatar: source.avatar || null,
-        plan: g.plan || null,
+        avatar:      source.avatar || null,
+        plan:        g.plan || null,
         expiresAtIso: null
       };
     }
@@ -1116,7 +1214,7 @@ function registerDiscordBulkDeleteRoutes(app, options = {}) {
     }
   });
 
-  // API untuk bot Discord – create giveaway
+  // API untuk bot Discord - create giveaway
   app.post("/api/bot/giveaway/create", requireBotAuth, async (req, res) => {
     try {
       const body = req.body || {};
@@ -1138,7 +1236,10 @@ function registerDiscordBulkDeleteRoutes(app, options = {}) {
         plan:               body.plan
       });
 
-      const sanitized = sanitizeGiveawayForPublic(giveaway);
+      const sanitized = await sanitizeGiveawayForPublic(giveaway, {
+        kvClient,
+        logger
+      });
 
       return res.json({
         ok:       true,
@@ -1155,7 +1256,7 @@ function registerDiscordBulkDeleteRoutes(app, options = {}) {
     }
   });
 
-  // API – join giveaway
+  // API - join giveaway
   app.post("/api/bot/giveaway/join", requireBotAuth, async (req, res) => {
     try {
       const body       = req.body || {};
@@ -1174,7 +1275,10 @@ function registerDiscordBulkDeleteRoutes(app, options = {}) {
         avatar: body.avatar
       });
 
-      const sanitized = sanitizeGiveawayForPublic(result.giveaway);
+      const sanitized = await sanitizeGiveawayForPublic(result.giveaway, {
+        kvClient,
+        logger
+      });
 
       return res.json({
         ok:       true,
@@ -1192,7 +1296,7 @@ function registerDiscordBulkDeleteRoutes(app, options = {}) {
     }
   });
 
-  // API – end giveaway (tanpa auto generate key Paid, tapi pilih winners dari snapshot)
+  // API - end giveaway
   app.post("/api/bot/giveaway/end", requireBotAuth, async (req, res) => {
     try {
       const body       = req.body || {};
@@ -1204,7 +1308,10 @@ function registerDiscordBulkDeleteRoutes(app, options = {}) {
         giveawayId
       });
 
-      const sanitized = sanitizeGiveawayForPublic(result.giveaway);
+      const sanitized = await sanitizeGiveawayForPublic(result.giveaway, {
+        kvClient,
+        logger
+      });
 
       return res.json({
         ok:       true,
@@ -1223,7 +1330,7 @@ function registerDiscordBulkDeleteRoutes(app, options = {}) {
     }
   });
 
-  // API – get detail giveaway
+  // API - get detail giveaway
   app.get("/api/bot/giveaway/:id", requireBotAuth, async (req, res) => {
     try {
       const id        = String(req.params.id || "").trim();
@@ -1237,7 +1344,10 @@ function registerDiscordBulkDeleteRoutes(app, options = {}) {
         });
       }
 
-      const sanitized = sanitizeGiveawayForPublic(g);
+      const sanitized = await sanitizeGiveawayForPublic(g, {
+        kvClient,
+        logger
+      });
 
       return res.json({
         ok:       true,
@@ -1253,7 +1363,7 @@ function registerDiscordBulkDeleteRoutes(app, options = {}) {
     }
   });
 
-  // Web summary: /summary/ga/:id (sinkron dengan SUMMARY_BASE_URL)
+  // Web summary: /summary/ga/:id
   app.get("/summary/ga/:id", async (req, res) => {
     try {
       const id        = String(req.params.id || "").trim();
@@ -1267,7 +1377,10 @@ function registerDiscordBulkDeleteRoutes(app, options = {}) {
         });
       }
 
-      const sanitized = sanitizeGiveawayForPublic(g);
+      const sanitized = await sanitizeGiveawayForPublic(g, {
+        kvClient,
+        logger
+      });
 
       return res.render("discord-giveaway-summary", {
         title: g.prize ? `Discord Giveaway – ${g.prize}` : "Discord Giveaway",
