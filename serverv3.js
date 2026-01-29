@@ -501,9 +501,9 @@ async function deleteDiscordUserData(opts) {
           const recKey = FREE_TOKEN_PREFIX + token;
           const rec    = await getKv(kvClient, recKey);
           if (rec) {
-            rec.deleted           = true;
-            rec.valid             = false;
-            rec.deletedAt         = nowIsoStr;
+            rec.deleted            = true;
+            rec.valid              = false;
+            rec.deletedAt          = nowIsoStr;
             rec.deletedByDiscordId = discordId;
             await setKv(kvClient, recKey, rec);
             removedFreeKeys++;
@@ -527,9 +527,9 @@ async function deleteDiscordUserData(opts) {
           const recKey = PAID_TOKEN_PREFIX + token;
           const rec    = await getKv(kvClient, recKey);
           if (rec) {
-            rec.deleted           = true;
-            rec.valid             = false;
-            rec.deletedAt         = nowIsoStr;
+            rec.deleted            = true;
+            rec.valid              = false;
+            rec.deletedAt          = nowIsoStr;
             rec.deletedByDiscordId = discordId;
             await setKv(kvClient, recKey, rec);
             removedPaidKeys++;
@@ -744,7 +744,7 @@ async function loadDiscordProfilesMap({ kvClient, logger = console, discordIds }
   return out;
 }
 
-// Untuk response publik / summary - sekarang async dan merge dengan profil Discord
+// Untuk response publik / summary - merge snapshot dengan profil Discord
 async function sanitizeGiveawayForPublic(g, opts = {}) {
   if (!g) return null;
 
@@ -785,7 +785,7 @@ async function sanitizeGiveawayForPublic(g, opts = {}) {
       prof.displayName ||
       null;
     const discriminator = entry.discriminator || prof.discriminator || null;
-    const avatar        = entry.avatar || prof.avatar || null;
+    const avatar        = entry.avatar || prof.avatar || prof.avatarHash || null;
 
     let avatarUrl = null;
     if (prof.avatarUrl) {
@@ -862,7 +862,6 @@ async function createGiveawayRecord(opts) {
   const randomPart = Math.random().toString(36).slice(2, 8);
   const id         = `ga_${nowMs}_${randomPart}`;
 
-  // Dengan SUMMARY_BASE_URL=.../summary → summaryUrl=.../summary/ga/<id>
   const summaryUrl = `${SUMMARY_BASE_URL}/ga/${encodeURIComponent(id)}`;
 
   const giveaway = {
@@ -955,7 +954,7 @@ async function joinGiveaway(opts) {
   };
 }
 
-// Nama fungsi tetap dipakai bot, tapi sekarang juga pilih winners dari snapshot peserta
+// Pilih winners dari snapshot peserta
 async function endGiveawayAndGenerateKeys(opts) {
   const kvClient = opts.kvClient || defaultKv;
   const logger   = opts.logger || console;
@@ -1021,13 +1020,13 @@ async function endGiveawayAndGenerateKeys(opts) {
     const source = participantsNorm.find((p) => p.discordId === wid);
     if (source) {
       return {
-        discordId:   source.discordId,
-        username:    source.username || null,
-        globalName:  source.globalName || null,
+        discordId:     source.discordId,
+        username:      source.username || null,
+        globalName:    source.globalName || null,
         discriminator: source.discriminator || null,
-        avatar:      source.avatar || null,
-        plan:        g.plan || null,
-        expiresAtIso: null
+        avatar:        source.avatar || null,
+        plan:          g.plan || null,
+        expiresAtIso:  null
       };
     }
     return {
@@ -1214,7 +1213,7 @@ function registerDiscordBulkDeleteRoutes(app, options = {}) {
     }
   });
 
-  // API untuk bot Discord - create giveaway
+  // API - create giveaway
   app.post("/api/bot/giveaway/create", requireBotAuth, async (req, res) => {
     try {
       const body = req.body || {};
@@ -1242,8 +1241,8 @@ function registerDiscordBulkDeleteRoutes(app, options = {}) {
       });
 
       return res.json({
-        ok:       true,
-        giveaway: sanitized,
+        ok:        true,
+        giveaway:  sanitized,
         summaryUrl: giveaway.summaryUrl
       });
     } catch (err) {
