@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title><%= title || 'ExHub — Discord Giveaway' %></title>
+  <link rel="icon" type="image/png" href="/img/ExLogo2.png" />
+  <link rel="stylesheet" href="/css/mainv2.css" />
+
+  <script src="https://publisher.linkvertise.com/cdn/linkvertise.js"></script>
+  <script>
+    linkvertise(2995260, { whitelist: [], blacklist: [""] });
+  </script>
+</head>
+<body class="page-dark">
+<header class="site-header">
+  <div class="container header-inner">
+    <a href="/" class="logo">
+      <span class="logo-icon">
+        <img
+          src="/img/ExLogo2.png"
+          alt="ExHub Logo"
+          style="width:100%;height:100%;object-fit:cover;border-radius:12px;"
+        />
+      </span>
+      <span class="logo-text">ExHub</span>
+    </a>
+
+    <nav class="header-nav">
+      <span class="header-tagline">Discord Giveaway Summary</span>
+    </nav>
+  </div>
+</header>
+
+<main class="page-main">
+  <div class="container dashboard-layout">
+    <% if (!giveaway) { %>
+      <section class="dash-hero">
+        <div class="dash-hero-main">
+          <div class="dash-hero-avatar-frame">
+            <div class="dash-hero-avatar-placeholder">
+              <span>?</span>
+            </div>
+          </div>
+          <div class="dash-hero-text">
+            <p class="dash-eyebrow">Discord Giveaway</p>
+            <h1 class="dash-welcome">
+              <span>Giveaway not found</span>
+            </h1>
+            <p class="dash-caption">
+              This giveaway ID is invalid or no longer available. Please check the link from Discord again.
+            </p>
+          </div>
+        </div>
+      </section>
+    <% } else { %>
+      <%
+        var status        = (giveaway.status || 'unknown').toLowerCase();
+        var statusLabel   = giveaway.status || 'Unknown';
+        var prize         = giveaway.prize || 'Untitled Giveaway';
+        var description   = giveaway.description || '';
+        var plan          = giveaway.plan || null;
+        var participants  = Array.isArray(giveaway.participants) ? giveaway.participants : [];
+        var winners       = Array.isArray(giveaway.winners) ? giveaway.winners : [];
+        var participantsCount = participants.length;
+        var winnersCount  = winners.length;
+        var endsAtIso     = giveaway.endsAtIso || null;
+        var createdAtIso  = giveaway.createdAtIso || null;
+        var guildId       = giveaway.guildId || null;
+        var channelId     = giveaway.channelId || null;
+        var messageId     = giveaway.messageId || null;
+        var discordLink   = null;
+
+        if (guildId && channelId && messageId) {
+          discordLink = "https://discord.com/channels/" +
+            guildId + "/" + channelId + "/" + messageId;
+        }
+
+        var statusBadgeClass = 'badge';
+        if (status === 'running') {
+          statusBadgeClass += ' badge-active';
+        } else if (status === 'ended') {
+          statusBadgeClass += ' badge-success';
+        } else if (status === 'cancelled') {
+          statusBadgeClass += ' badge-danger';
+        }
+      %>
+
+      <!-- HERO -->
+      <section class="dash-hero">
+        <div class="dash-hero-main">
+          <div class="dash-hero-avatar-frame">
+            <div class="dash-hero-avatar-placeholder">
+              <span>🎉</span>
+            </div>
+          </div>
+
+          <div class="dash-hero-text">
+            <p class="dash-eyebrow">Discord Giveaway</p>
+            <h1 class="dash-welcome">
+              <span><%= prize %></span>
+            </h1>
+            <p class="dash-caption">
+              <%= description || 'No description provided for this giveaway.' %>
+            </p>
+
+            <div class="dash-hero-chips">
+              <span class="hero-chip">
+                ID:
+                <code><%= giveaway.id %></code>
+              </span>
+              <span class="hero-chip hero-chip-soft">
+                Status:
+                <span class="<%= statusBadgeClass %>"><%= statusLabel %></span>
+              </span>
+              <% if (plan) { %>
+                <span class="hero-chip hero-chip-soft">
+                  Plan:
+                  <strong><%= plan %></strong>
+                </span>
+              <% } %>
+            </div>
+          </div>
+        </div>
+
+        <div class="dash-hero-side">
+          <div class="dash-hero-side-card">
+            <p class="dash-hero-side-label">Schedule</p>
+            <p class="dash-hero-side-meta">
+              <span>Created at:</span>
+              <br />
+              <code id="ga-created-at" data-iso="<%= createdAtIso || '' %>">
+                <%= createdAtIso || '—' %>
+              </code>
+              <br /><br />
+              <span>Ends at:</span>
+              <br />
+              <code id="ga-ends-at" data-iso="<%= endsAtIso || '' %>">
+                <%= endsAtIso || '—' %>
+              </code>
+              <br /><br />
+              <span>Duration (ms):</span>
+              <br />
+              <code><%= typeof giveaway.durationMs === 'number' ? giveaway.durationMs : '—' %></code>
+            </p>
+          </div>
+
+          <div class="dash-hero-side-card">
+            <p class="dash-hero-side-label">Discord Message</p>
+            <% if (discordLink) { %>
+              <p class="dash-hero-side-meta">
+                <span>Guild ID:</span> <code><%= guildId %></code><br />
+                <span>Channel ID:</span> <code><%= channelId %></code><br />
+                <span>Message ID:</span> <code><%= messageId %></code><br /><br />
+                <a
+                  href="<%= discordLink %>"
+                  class="btn-primary"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Open in Discord
+                </a>
+              </p>
+            <% } else { %>
+              <p class="dash-hero-side-meta">
+                Discord link is not available for this giveaway.
+              </p>
+            <% } %>
+          </div>
+        </div>
+      </section>
+
+      <!-- STATS -->
+      <section class="dash-stats-grid">
+        <div class="dash-stat-card">
+          <p class="dash-stat-label">Status</p>
+          <p class="dash-stat-value">
+            <span class="<%= statusBadgeClass %>"><%= statusLabel %></span>
+          </p>
+        </div>
+        <div class="dash-stat-card">
+          <p class="dash-stat-label">Total Participants</p>
+          <p class="dash-stat-value">
+            <%= participantsCount %>
+          </p>
+        </div>
+        <div class="dash-stat-card">
+          <p class="dash-stat-label">Configured Winners</p>
+          <p class="dash-stat-value">
+            <%= giveaway.winnersCount || 1 %>
+          </p>
+        </div>
+        <div class="dash-stat-card">
+          <p class="dash-stat-label">Winners Selected</p>
+          <p class="dash-stat-value">
+            <%= winnersCount %>
+          </p>
+        </div>
+      </section>
+
+      <!-- WINNERS -->
+      <section class="dash-keys-section">
+        <div class="dash-keys-header">
+          <div>
+            <h2>Winners</h2>
+            <p class="dash-section-caption">
+              Winners are listed by Discord ID only. Keys or tokens are handled only inside the bot or admin panel.
+            </p>
+          </div>
+        </div>
+
+        <div class="dash-keys-table">
+          <% if (winnersCount > 0) { %>
+            <div class="dash-keys-row dash-keys-row--head">
+              <div>Discord ID</div>
+              <div>Plan</div>
+              <div>Key Expiry</div>
+            </div>
+
+            <% winners.forEach(function (w) { %>
+              <div class="dash-keys-row">
+                <div class="dash-key-id">
+                  <code><%= w.discordId %></code>
+                </div>
+                <div class="dash-key-provider">
+                  <%= w.plan || '—' %>
+                </div>
+                <div class="dash-key-time">
+                  <% if (w.expiresAtIso) { %>
+                    <span
+                      class="dash-key-time-label"
+                      data-role="winner-expire"
+                      data-iso="<%= w.expiresAtIso %>"
+                    >
+                      <%= w.expiresAtIso %>
+                    </span>
+                  <% } else { %>
+                    <span class="dash-key-time-label">—</span>
+                  <% } %>
+                </div>
+              </div>
+            <% }); %>
+          <% } else { %>
+            <div class="dash-keys-empty">
+              <% if (status === 'running') { %>
+                Winners will be selected when this giveaway ends.
+              <% } else { %>
+                No winners recorded for this giveaway.
+              <% } %>
+            </div>
+          <% } %>
+        </div>
+      </section>
+
+      <!-- PARTICIPANTS -->
+      <section class="dash-keys-section">
+        <div class="dash-keys-header">
+          <div>
+            <h2>Participants</h2>
+            <p class="dash-section-caption">
+              Full list of participants (Discord IDs) who joined this giveaway.
+            </p>
+          </div>
+        </div>
+
+        <div class="dash-keys-table">
+          <% if (participantsCount > 0) { %>
+            <div class="dash-keys-row dash-keys-row--head">
+              <div>#</div>
+              <div>Discord ID</div>
+            </div>
+
+            <% participants.forEach(function (pid, index) { %>
+              <div class="dash-keys-row">
+                <div class="dash-key-id">
+                  <%= index + 1 %>
+                </div>
+                <div class="dash-key-provider">
+                  <code><%= pid %></code>
+                </div>
+              </div>
+            <% }); %>
+          <% } else { %>
+            <div class="dash-keys-empty">
+              No participants have joined this giveaway.
+            </div>
+          <% } %>
+        </div>
+      </section>
+    <% } %>
+  </div>
+</main>
+
+<script>
+  window.EXHUB_GIVEAWAY = <%- JSON.stringify(giveaway || null) %>;
+</script>
+
+<script>
+(function () {
+  function formatDateTimeWIB(iso) {
+    if (!iso) return '—';
+    var date = new Date(iso);
+    if (isNaN(date.getTime())) return iso;
+
+    var dtf = new Intl.DateTimeFormat('id-ID', {
+      timeZone: 'Asia/Jakarta',
+      weekday: 'long',
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
+
+    var parts = dtf.formatToParts(date);
+    function get(type) {
+      var p = parts.find(function (x) { return x.type === type; });
+      return p ? p.value : '';
+    }
+
+    var weekday = get('weekday');
+    var day     = get('day');
+    var month   = get('month');
+    var year    = get('year');
+    var hour    = get('hour');
+    var minute  = get('minute');
+
+    return weekday + ', ' + day + ' ' + month + ' ' + year + ', Jam ' +
+      hour + ':' + minute + ' WIB';
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    var createdEl = document.getElementById('ga-created-at');
+    if (createdEl && createdEl.dataset.iso) {
+      createdEl.textContent = formatDateTimeWIB(createdEl.dataset.iso);
+    }
+
+    var endsEl = document.getElementById('ga-ends-at');
+    if (endsEl && endsEl.dataset.iso) {
+      endsEl.textContent = formatDateTimeWIB(endsEl.dataset.iso);
+    }
+
+    var winnerExpireEls = document.querySelectorAll('[data-role="winner-expire"]');
+    winnerExpireEls.forEach(function (el) {
+      var iso = el.dataset.iso;
+      if (iso) {
+        el.textContent = formatDateTimeWIB(iso);
+      }
+    });
+  });
+})();
+</script>
+
+<script src="/js/protect-devtools.js"></script>
+</body>
+</html>
