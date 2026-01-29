@@ -190,19 +190,30 @@
             <% } %>
           </div>
 
-          <!-- ADMIN ACTION: DELETE GIVEAWAY -->
+          <!-- ADMIN ACTION: DELETE GIVEAWAY (UPGRADED UI) -->
           <div class="dash-hero-side-card">
             <p class="dash-hero-side-label">Admin Actions</p>
             <p class="dash-hero-side-meta">
               This action is protected. Only authenticated admins can delete.
+              <br />
+              <span class="table-sub-text" style="display:block;margin-top:4px;opacity:.85;">
+                Deleting a giveaway will remove it from the web summary and admin panel.
+                This cannot be undone.
+              </span>
             </p>
             <form
               action="/admin/discord/giveaway/delete/<%= giveaway.id %>"
               method="post"
               onsubmit="return confirm('Delete this giveaway permanently? This cannot be undone.');"
+              style="margin-top:10px;"
             >
-              <button type="submit" class="btn-danger">
-                Delete Giveaway
+              <button
+                type="submit"
+                class="btn-danger key-btn key-btn-xs key-btn-outline key-btn-danger-soft"
+                style="width:100%;justify-content:center;display:inline-flex;align-items:center;gap:6px;"
+              >
+                <span style="font-size:0.9rem;">🗑</span>
+                <span>Delete Giveaway</span>
               </button>
             </form>
           </div>
