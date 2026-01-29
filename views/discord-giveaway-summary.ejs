@@ -55,34 +55,31 @@
       </section>
     <% } else { %>
       <%
-        var status        = (giveaway.status || 'unknown').toLowerCase();
-        var statusLabel   = giveaway.status || 'Unknown';
-        var prize         = giveaway.prize || 'Untitled Giveaway';
-        var description   = giveaway.description || '';
-        var plan          = giveaway.plan || null;
-        var participants  = Array.isArray(giveaway.participants) ? giveaway.participants : [];
-        var winners       = Array.isArray(giveaway.winners) ? giveaway.winners : [];
-        var participantsCount = participants.length;
-        var winnersCount  = winners.length;
-        var endsAtIso     = giveaway.endsAtIso || null;
-        var createdAtIso  = giveaway.createdAtIso || null;
-        var guildId       = giveaway.guildId || null;
-        var channelId     = giveaway.channelId || null;
-        var messageId     = giveaway.messageId || null;
-        var discordLink   = null;
+        // =========================
+        // Helper universal (server-side EJS)
+        // =========================
 
-        if (guildId && channelId && messageId) {
-          discordLink = "https://discord.com/channels/" +
-            guildId + "/" + channelId + "/" + messageId;
+        function normalizeList(list) {
+          return Array.isArray(list) ? list : [];
         }
 
-        var statusBadgeClass = 'badge';
-        if (status === 'running') {
-          statusBadgeClass += ' badge-active';
-        } else if (status === 'ended') {
-          statusBadgeClass += ' badge-success';
-        } else if (status === 'cancelled') {
-          statusBadgeClass += ' badge-danger';
+        function buildStatusBadgeClass(statusRaw) {
+          var s = (statusRaw || 'unknown').toLowerCase();
+          var cls = 'badge';
+          if (s === 'running') {
+            cls += ' badge-active';
+          } else if (s === 'ended') {
+            cls += ' badge-success';
+          } else if (s === 'cancelled') {
+            cls += ' badge-danger';
+          }
+          return cls;
+        }
+
+        function buildDiscordMessageLink(guildId, channelId, messageId) {
+          if (!guildId || !channelId || !messageId) return null;
+          return 'https://discord.com/channels/' +
+            guildId + '/' + channelId + '/' + messageId;
         }
 
         function safeId(entry) {
@@ -90,21 +87,60 @@
           if (typeof entry === 'string') return entry;
           return entry.discordId || entry.id || '';
         }
+
         function safeUsername(entry) {
           if (!entry || typeof entry === 'string') return '';
           return entry.username || '';
         }
+
         function safeDisplayName(entry) {
           if (!entry || typeof entry === 'string') return '';
-          return entry.globalName || entry.displayName || entry.username || safeId(entry);
+          return (
+            entry.globalName ||
+            entry.displayName ||
+            entry.username ||
+            safeId(entry)
+          );
         }
-        function avatarUrl(entry) {
+
+        // Prefer avatarUrl/avatarURL dari server, fallback ke hash avatar
+        function resolveAvatarUrl(entry, size) {
           if (!entry || typeof entry === 'string') return null;
+          size = size || 64;
+
+          if (entry.avatarUrl) return entry.avatarUrl;
+          if (entry.avatarURL) return entry.avatarURL;
+
           var id = safeId(entry);
           var av = entry.avatar || '';
           if (!id || !av) return null;
-          return "https://cdn.discordapp.com/avatars/" + id + "/" + av + ".png?size=64";
+
+          return 'https://cdn.discordapp.com/avatars/' +
+            id + '/' + av + '.png?size=' + size;
         }
+
+        // =========================
+        // Normalisasi data giveaway
+        // =========================
+
+        var rawStatus      = giveaway.status || 'unknown';
+        var status         = rawStatus.toLowerCase();
+        var statusLabel    = rawStatus || 'Unknown';
+        var prize          = giveaway.prize || 'Untitled Giveaway';
+        var description    = giveaway.description || '';
+        var plan           = giveaway.plan || null;
+        var participants   = normalizeList(giveaway.participants);
+        var winners        = normalizeList(giveaway.winners);
+        var participantsCount = participants.length;
+        var winnersCount   = winners.length;
+        var endsAtIso      = giveaway.endsAtIso || null;
+        var createdAtIso   = giveaway.createdAtIso || null;
+        var guildId        = giveaway.guildId || null;
+        var channelId      = giveaway.channelId || null;
+        var messageId      = giveaway.messageId || null;
+
+        var discordLink    = buildDiscordMessageLink(guildId, channelId, messageId);
+        var statusBadgeClass = buildStatusBadgeClass(rawStatus);
       %>
 
       <!-- HERO -->
@@ -190,7 +226,7 @@
             <% } %>
           </div>
 
-          <!-- ADMIN ACTION: DELETE GIVEAWAY (UPGRADED UI) -->
+          <!-- ADMIN ACTION: DELETE GIVEAWAY (styled) -->
           <div class="dash-hero-side-card">
             <p class="dash-hero-side-label">Admin Actions</p>
             <p class="dash-hero-side-meta">
@@ -269,10 +305,10 @@
             </div>
 
             <% winners.forEach(function (w) { 
-                 var wid   = safeId(w);
-                 var wuser = safeUsername(w);
-                 var wdisp = safeDisplayName(w);
-                 var wavatar = avatarUrl(w);
+                 var wid      = safeId(w);
+                 var wuser    = safeUsername(w);
+                 var wdisp    = safeDisplayName(w);
+                 var wavatar  = resolveAvatarUrl(w, 64);
             %>
               <div class="dash-keys-row">
                 <div class="dash-key-id">
@@ -355,10 +391,10 @@
             </div>
 
             <% participants.forEach(function (p, index) { 
-                 var pid   = safeId(p);
-                 var puser = safeUsername(p);
-                 var pdisp = safeDisplayName(p);
-                 var pavatar = avatarUrl(p);
+                 var pid     = safeId(p);
+                 var puser   = safeUsername(p);
+                 var pdisp   = safeDisplayName(p);
+                 var pavatar = resolveAvatarUrl(p, 32);
             %>
               <div class="dash-keys-row">
                 <div class="dash-key-id"><%= index + 1 %></div>
