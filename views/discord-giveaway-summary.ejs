@@ -84,6 +84,27 @@
         } else if (status === 'cancelled') {
           statusBadgeClass += ' badge-danger';
         }
+
+        function safeId(entry) {
+          if (!entry) return '';
+          if (typeof entry === 'string') return entry;
+          return entry.discordId || entry.id || '';
+        }
+        function safeUsername(entry) {
+          if (!entry || typeof entry === 'string') return '';
+          return entry.username || '';
+        }
+        function safeDisplayName(entry) {
+          if (!entry || typeof entry === 'string') return '';
+          return entry.globalName || entry.displayName || entry.username || safeId(entry);
+        }
+        function avatarUrl(entry) {
+          if (!entry || typeof entry === 'string') return null;
+          var id = safeId(entry);
+          var av = entry.avatar || '';
+          if (!id || !av) return null;
+          return "https://cdn.discordapp.com/avatars/" + id + "/" + av + ".png?size=64";
+        }
       %>
 
       <!-- HERO -->
@@ -157,6 +178,7 @@
                   class="btn-primary"
                   target="_blank"
                   rel="noopener noreferrer"
+                  style="margin-bottom:8px;display:inline-block;"
                 >
                   Open in Discord
                 </a>
@@ -166,6 +188,23 @@
                 Discord link is not available for this giveaway.
               </p>
             <% } %>
+          </div>
+
+          <!-- ADMIN ACTION: DELETE GIVEAWAY -->
+          <div class="dash-hero-side-card">
+            <p class="dash-hero-side-label">Admin Actions</p>
+            <p class="dash-hero-side-meta">
+              This action is protected. Only authenticated admins can delete.
+            </p>
+            <form
+              action="/admin/discord/giveaway/delete/<%= giveaway.id %>"
+              method="post"
+              onsubmit="return confirm('Delete this giveaway permanently? This cannot be undone.');"
+            >
+              <button type="submit" class="btn-danger">
+                Delete Giveaway
+              </button>
+            </form>
           </div>
         </div>
       </section>
@@ -204,7 +243,7 @@
           <div>
             <h2>Winners</h2>
             <p class="dash-section-caption">
-              Winners are listed by Discord ID only. Keys or tokens are handled only inside the bot or admin panel.
+              Winners list with Discord profile snapshot at the time of giveaway end.
             </p>
           </div>
         </div>
@@ -212,18 +251,51 @@
         <div class="dash-keys-table">
           <% if (winnersCount > 0) { %>
             <div class="dash-keys-row dash-keys-row--head">
+              <div>Winner</div>
               <div>Discord ID</div>
               <div>Plan</div>
               <div>Key Expiry</div>
             </div>
 
-            <% winners.forEach(function (w) { %>
+            <% winners.forEach(function (w) { 
+                 var wid   = safeId(w);
+                 var wuser = safeUsername(w);
+                 var wdisp = safeDisplayName(w);
+                 var wavatar = avatarUrl(w);
+            %>
               <div class="dash-keys-row">
                 <div class="dash-key-id">
-                  <code><%= w.discordId %></code>
+                  <div class="ga-user">
+                    <div class="ga-user-avatar">
+                      <% if (wavatar) { %>
+                        <img
+                          src="<%= wavatar %>"
+                          alt="Avatar"
+                          style="width:40px;height:40px;border-radius:20px;object-fit:cover;"
+                        />
+                      <% } else { %>
+                        <div
+                          style="width:40px;height:40px;border-radius:20px;
+                                 background:#111827;display:flex;align-items:center;
+                                 justify-content:center;font-weight:600;"
+                        >
+                          <span><%= (wdisp || '?').charAt(0).toUpperCase() %></span>
+                        </div>
+                      <% } %>
+                    </div>
+                    <div class="ga-user-meta">
+                      <div class="ga-user-display"><%= wdisp || 'Unknown' %></div>
+                      <div class="ga-user-username">
+                        <% if (wuser) { %>@<%= wuser %><% } else { %><span style="opacity:0.7;">No username</span><% } %>
+                      </div>
+                    </div>
+                  </div>
                 </div>
                 <div class="dash-key-provider">
-                  <%= w.plan || '—' %>
+                  <code><%= wid %></code>
+                </div>
+                <div class="dash-key-provider">
+                  <%= w.plan || giveaway.plan || '—' %>
                 </div>
                 <div class="dash-key-time">
                   <% if (w.expiresAtIso) { %>
@@ -258,7 +330,7 @@
           <div>
             <h2>Participants</h2>
             <p class="dash-section-caption">
-              Full list of participants (Discord IDs) who joined this giveaway.
+              Full list of participants with Discord profile snapshot.
             </p>
           </div>
         </div>
@@ -267,13 +339,44 @@
           <% if (participantsCount > 0) { %>
             <div class="dash-keys-row dash-keys-row--head">
               <div>#</div>
+              <div>Participant</div>
               <div>Discord ID</div>
             </div>
 
-            <% participants.forEach(function (pid, index) { %>
+            <% participants.forEach(function (p, index) { 
+                 var pid   = safeId(p);
+                 var puser = safeUsername(p);
+                 var pdisp = safeDisplayName(p);
+                 var pavatar = avatarUrl(p);
+            %>
               <div class="dash-keys-row">
-                <div class="dash-key-id">
-                  <%= index + 1 %>
+                <div class="dash-key-id"><%= index + 1 %></div>
+                <div class="dash-key-provider">
+                  <div class="ga-user">
+                    <div class="ga-user-avatar">
+                      <% if (pavatar) { %>
+                        <img
+                          src="<%= pavatar %>"
+                          alt="Avatar"
+                          style="width:32px;height:32px;border-radius:16px;object-fit:cover;"
+                        />
+                      <% } else { %>
+                        <div
+                          style="width:32px;height:32px;border-radius:16px;
+                                 background:#111827;display:flex;align-items:center;
+                                 justify-content:center;font-weight:600;font-size:0.85rem;"
+                        >
+                          <span><%= (pdisp || '?').charAt(0).toUpperCase() %></span>
+                        </div>
+                      <% } %>
+                    </div>
+                    <div class="ga-user-meta">
+                      <div class="ga-user-display"><%= pdisp || 'Unknown' %></div>
+                      <div class="ga-user-username">
+                        <% if (puser) { %>@<%= puser %><% } else { %><span style="opacity:0.7;">No username</span><% } %>
+                      </div>
+                    </div>
+                  </div>
                 </div>
                 <div class="dash-key-provider">
                   <code><%= pid %></code>
